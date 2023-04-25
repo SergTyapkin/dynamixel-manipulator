@@ -25,17 +25,17 @@
     }                                  \
     if (__readedSymbol == 'Q') {       \
       FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeed(i, 7);           \
+        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 7);           \
       static pos __null_pos_1[] = {135, 180, 155, 164, 180, 170}; \
       MANIPULATOR_CLASS_VARIABLE.setAllJointsPositions(__null_pos_1);                        \
       delay(3000);                     \
       FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeed(i, 3);           \
+        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 3);           \
       static pos __null_pos_2[] = {135, 155, 132, 164, 180, 170}; \
       MANIPULATOR_CLASS_VARIABLE.setAllJointsPositions(__null_pos_2);                        \
       delay(500);                      \
       FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeed(i, 1); \
+        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 1); \
       delay(2500);    \
       MANIPULATOR_CLASS_VARIABLE.disableAll();   \
       exit(0);        \

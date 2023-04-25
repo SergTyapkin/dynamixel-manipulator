@@ -2,6 +2,12 @@
 #define INCLUDE_DYNAMIXEL_MANIPULATOR_
 
 
+#define CPP_COMPILE_MODE
+
+
+#ifndef CPP_COMPILE_MODE
+  #include <Dynamixel2Arduino.h>
+#endif
 #include "../Kinematics/Kinematics.h"
 #include <math.h>
 
@@ -45,18 +51,20 @@ public:
 
   DynamixelManipulator(
       size_t jointsCount,
-      const Joint::pos* minJointsPoses,
-      const Joint::pos* maxJointPoses,
+      const Joint::posDeg* minJointsPoses,
+      const Joint::posDeg* maxJointPoses,
       const Joint::id* jointsIds,
       USBSerial serialPort = DXL_SERIAL,
       unsigned baudrate = BAUDRATE,
       unsigned dirPin = DXL_DIR_PIN,
-      float protocolVersion = DXL_PROTOCOL_VERSION,
+      float protocolVersion = DXL_PROTOCOL_VERSION
           );
   ~DynamixelManipulator();
 
   // --- Basic
   void LOOP_UPDATE();
+  void LOOP_PRINT();
+  void DELAY();
 
   // --- Position
   void setJointPosRaw(Joint::id id, Joint::posRaw pos);

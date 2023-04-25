@@ -167,7 +167,7 @@ public:
     #endif
   }
   void DELAY() {
-    delay(50);
+    delay(UPDATE_DELAY * 1000);
   }
 
   // --- Position

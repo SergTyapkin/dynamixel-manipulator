@@ -1,9 +1,6 @@
 #include "DynamixelManipulatorMoves.h"
 
 
-#define POSES_DEG_ACCURANCY = 1;
-
-
 void getTimedSmoothMovingSpeedDPS(const pos* start, const pos* end, float duration, const float currentTime, float* exportSpeedsDPS) {
   FOR_JOINTS_IDX(i) {
     const float L = end[i] - start[i];
@@ -64,7 +61,7 @@ public:
 
     // получаем новую точку
     Joint::posDeg* newPoses = (Joint::posDeg*)malloc(sizeof(Joint::posDeg) * this.jointsCount);
-    getAnglesByTargetPoint(x, y, z, this.realPosition, newPoses);
+    getAnglesByTargetPoint(x, y, z, this.realPosition, newPoses, this.minJointsPoses, this.maxJointsPoses);
     this.movingPath[this.movingPathLen - 1] = newPoses;
 
     // если точек до этого не было, то это новая цель
@@ -151,9 +148,7 @@ public:
     if (!this.isRunning) { // В случае паузы
       this.setAllJointsSpeedsDPS(0); // Остановить
       this.currentTime = 0;
-      FOR_JOINTS_IDX(i) { // Ставим стартом текущую позицию, чтоб плавно потом продолжил из этой точки
-        this.startPos[i] = this.realPositions[i];
-      }
+      this._setTarget(this.targetPos); // Ставим стартом текущую позицию, чтоб плавно потом продолжил из этой точки
     }
   }
 protected:
