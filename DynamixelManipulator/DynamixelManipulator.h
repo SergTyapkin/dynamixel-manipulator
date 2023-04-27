@@ -55,10 +55,12 @@
   class SerialPort {
   public:
     void begin(int baudrate);
-    void print(auto value);
+    template <typename T>
+    void print(T value);
     void print(float value);
     void print();
-    void println(auto value);
+    template <typename T>
+    void println(T value);
     void println(float value);
     void println();
 
