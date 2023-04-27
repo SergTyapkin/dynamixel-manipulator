@@ -32,7 +32,12 @@ int main() {
 
   DM.addPoint(10, 10, 10);
   DM.addPoint(20, 30, 40);
+  DM.addPoint(20, 50, 40);
+  DM._printMovingPath();
+  DM.removePoint(1);
+  DM._printMovingPath();
   DM.addPoint(20, -20, 10);
+  DM._printMovingPath();
   DM.go();
 
   return 0;

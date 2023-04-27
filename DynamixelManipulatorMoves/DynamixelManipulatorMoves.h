@@ -36,6 +36,7 @@ public:
   void clearAllPoints();
   void pause();
   void go();
+  void _printMovingPath();
 
   void _setTarget(Joint::posDeg* targetPositions);
   void LOOP_UPDATE();

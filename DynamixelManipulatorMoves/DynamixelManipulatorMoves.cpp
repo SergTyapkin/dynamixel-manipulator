@@ -123,6 +123,16 @@ void DynamixelManipulatorMoves::pause() {
 void DynamixelManipulatorMoves::go() {
   this->isRunning = true;
 }
+void DynamixelManipulatorMoves::_printMovingPath() {
+  for (int i = 0; i < this->movingPathLen; i++) {
+    FOR_JOINTS_IDX(j) {
+      Serial.print(this->movingPath[i][j]);
+      Serial.print(" ");
+    }
+    Serial.println(",");
+  }
+  Serial.println(".");
+}
 
 void DynamixelManipulatorMoves::LOOP_UPDATE() {
   DynamixelManipulator::LOOP_UPDATE();
