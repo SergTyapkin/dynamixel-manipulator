@@ -76,7 +76,8 @@
   void SerialPort::begin(int baudrate) {
     std::cout << "SERIAL INIT BAUDRATE:" << baudrate << std::endl;
   }
-  void SerialPort::print(auto value) {
+  template <typename T>
+  void SerialPort::print(T value) {
     std::cout << value;
   }
   void SerialPort::print(float value) {
@@ -84,7 +85,8 @@
   }
   void SerialPort::print() {
   }
-  void SerialPort::println(auto value) {
+  template <typename T>
+  void SerialPort::println(T value) {
     std::cout << value << std::endl;
   }
   void SerialPort::println(float value) {
