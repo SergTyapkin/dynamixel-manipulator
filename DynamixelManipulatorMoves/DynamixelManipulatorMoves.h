@@ -29,6 +29,7 @@ public:
     unsigned dirPin = DXL_DIR_PIN,
     float protocolVersion = DXL_PROTOCOL_VERSION
   );
+  ~DynamixelManipulatorMoves();
   size_t addPoint(float x, float y, float z);
   void removeLastPoint();
   void removePoint(size_t pointIndex);

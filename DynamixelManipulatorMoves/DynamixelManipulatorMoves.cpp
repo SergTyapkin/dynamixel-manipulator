@@ -62,7 +62,10 @@ DynamixelManipulatorMoves::DynamixelManipulatorMoves(
   this->startPos = this->_newJointsArray<Joint::posDeg>();
   this->targetPos = this->_newJointsArray<Joint::posDeg>();
 }
-
+DynamixelManipulatorMoves::~DynamixelManipulatorMoves() {
+  free(this->startPos);
+  free(this->targetPos);
+}
 
 size_t DynamixelManipulatorMoves::addPoint(float x, float y, float z) {
   if (this->movingPath == NULL) { // создаем список

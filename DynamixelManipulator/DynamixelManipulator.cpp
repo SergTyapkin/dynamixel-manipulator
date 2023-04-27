@@ -206,6 +206,10 @@ DynamixelManipulator::~DynamixelManipulator() {
   free(this->realPositions);
   free(this->realSpeeds);
   free(this->realCurrents);
+  free(this->minJointsPoses);
+  free(this->maxJointsPoses);
+  free(this->jointsIds);
+  free(this->prevPositions);
 }
 
 // --- Basic
