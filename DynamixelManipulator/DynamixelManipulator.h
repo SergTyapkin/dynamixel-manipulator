@@ -10,9 +10,64 @@
 #endif
 #include "../Kinematics/Kinematics.h"
 #include <math.h>
+#include <stdlib.h>
 
 
-#define DXL_SERIAL Serial3
+#ifndef CPP_COMPILE_MODE
+  #define DXL_SERIAL Serial3
+#else
+  #include <iostream>
+  #define DXL_SERIAL -1
+  #define USBSerial int
+  class Dynamixel2Arduino {
+  public:
+    Dynamixel2Arduino(int serialPort, int dirPin);
+    Dynamixel2Arduino();
+
+    void begin(int baudrate);
+    void setPortProtocolVersion(float protocolVersion);
+    bool ping(unsigned jointId);
+    unsigned getModelNumber(unsigned jointId);
+    unsigned setOperatingMode(unsigned jointId, unsigned opMode);
+
+    unsigned getPresentCurrent(unsigned jointId, unsigned unit);
+    unsigned getPresentVelocity(unsigned jointId, unsigned unit);
+    unsigned getPresentPosition(unsigned jointId, unsigned unit);
+
+    bool setGoalCurrent(unsigned jointId, unsigned val, unsigned unit);
+    bool setGoalVelocity(unsigned jointId, unsigned val, unsigned unit);
+    bool setGoalPosition(unsigned jointId, unsigned val, unsigned unit);
+
+    bool torqueOn(unsigned jointId);
+    bool torqueOff(unsigned jointId);
+  };
+
+  namespace ControlTableItem {
+    typedef int ParamUnit;
+    const unsigned OP_POSITION = 1;
+    const unsigned UNIT_PERCENT = 2;
+    const unsigned UNIT_RAW = 3;
+    const unsigned UNIT_DEGREE = 4;
+    const unsigned UNIT_RPM = 5;
+    const unsigned UNIT_MA = 6;
+  }
+
+  class SerialPort {
+  public:
+    void begin(int baudrate);
+    void print(auto value);
+    void print(float value);
+    void print();
+    void println(auto value);
+    void println(float value);
+    void println();
+
+    bool operator ! ();
+  };
+  #define Serial _dynamixel_manipulator_serial
+
+  void delay(int ms);
+#endif
 #define DXL_DIR_PIN 22
 #define BAUDRATE  1000000
 #define DXL_PROTOCOL_VERSION 1.0
@@ -24,6 +79,22 @@
 #define RAW_MAX 4096.0
 
 #define UPDATE_DELAY 0.050  // in seconds
+
+#define MAX_JOINT_SPEED_PERCENT 5 // On first joint will be SPEED x2
+
+// --- You can define MANIPULATOR_SERIAL_PORT_GRAPH_MODE in your script ---
+#ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
+#define PRINT_SETUPS false
+  #define PRINT_SETS   false
+  #define PRINT_ERRS   false
+#else
+  #define PRINT_SETUPS true
+  #define PRINT_SETS   true
+  #define PRINT_ERRS   true
+#endif
+
+#define FOR_JOINTS_IDX(name_of_var) for (Joint::index name_of_var = 0; name_of_var < this->jointsCount; name_of_var++)
+#define FOR_JOINTS_ID(name_of_var) for (Joint::index __i = 0, name_of_var = this->jointsIds[__i]; __i < this->jointsCount; __i++, name_of_var = this->jointsIds[__i])
 
 
 namespace Joint {
@@ -37,28 +108,29 @@ namespace Joint {
   typedef float currentPercent;
   typedef float currentRaw;
   typedef unsigned id;
+  typedef unsigned index;
 }
 
 
 class DynamixelManipulator {
 public:
-  Joint::posDeg realPositions[this.jointsCount];
-  Joint::speedDPS realSpeeds[this.jointsCount];
-  Joint::currentMA realCurrents[this.jointsCount];
+  Joint::posDeg* realPositions;
+  Joint::speedDPS* realSpeeds;
+  Joint::currentMA* realCurrents;
 
 //  Joint::speedDPS limitSpeeds[this.jointsCount];
 //  Joint::currentMA limitCurrents[this.jointsCount];
 
   DynamixelManipulator(
-      size_t jointsCount,
-      const Joint::posDeg* minJointsPoses,
-      const Joint::posDeg* maxJointPoses,
-      const Joint::id* jointsIds,
-      USBSerial serialPort = DXL_SERIAL,
-      unsigned baudrate = BAUDRATE,
-      unsigned dirPin = DXL_DIR_PIN,
-      float protocolVersion = DXL_PROTOCOL_VERSION
-          );
+    size_t jointsCount,
+    const Joint::posDeg* minJointsPoses,
+    const Joint::posDeg* maxJointPoses,
+    const Joint::id* jointsIds = NULL,
+    USBSerial serialPort = DXL_SERIAL,
+    unsigned baudrate = BAUDRATE,
+    unsigned dirPin = DXL_DIR_PIN,
+    float protocolVersion = DXL_PROTOCOL_VERSION
+  );
   ~DynamixelManipulator();
 
   // --- Basic
@@ -121,8 +193,9 @@ protected:
   size_t jointsCount;
   Dynamixel2Arduino dxl;
   Joint::posDeg* minJointsPoses;
-  Joint::posDeg* maxJointPoses;
+  Joint::posDeg* maxJointsPoses;
   Joint::id* jointsIds;
+  Joint::posDeg* prevPositions; // only for "print_if_changed"
 
   // -------- Set stats --------
   void setJointPosAny(Joint::id id, float position, const char* unitStr, ControlTableItem::ParamUnit unit);
@@ -147,6 +220,10 @@ protected:
   void readAllJointsCurrentsRaw(Joint::currentRaw* targetList);
   void readAllJointsCurrentsMA(Joint::currentMA* targetList);
   void readAllJointsCurrentsPercent(Joint::currentPercent* targetList);
+
+  // --- Utils ---
+  template <typename T>
+  T* _newJointsArray();
 };
 
 

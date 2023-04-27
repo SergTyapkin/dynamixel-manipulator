@@ -1,9 +1,6 @@
 #include "DynamixelManipulator.h"
 
 
-#define FOR_JOINTS_IDX(name_of_var) for (Joint::index name_of_var = 0; name_of_var < this.jointsCount; name_of_var++)
-#define FOR_JOINTS_ID(name_of_var) for (Joint::index __i = 0, name_of_var = this.jointsIds[__i]; __i < this.jointsCount; __i++, name_of_var = this.jointsIds[__i])
-
 #define PRINT_LIST(list)   \
   FOR_JOINTS_IDX(i) {      \
     Serial.print(list[i]); \
@@ -26,18 +23,6 @@
 #define PRINT_SETUPln(value) __PRINTln_IFDEF(PRINT_SETUPS, value)
 
 
-// --- You can define MANIPULATOR_SERIAL_PORT_GRAPH_MODE in your script ---
-#ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
-  #define PRINT_SETUPS false
-  #define PRINT_SETS   false
-  #define PRINT_ERRS   false
-#else
-  #define PRINT_SETUPS true
-  #define PRINT_SETS   true
-  #define PRINT_ERRS   true
-#endif
-
-
 // --- Errors ---
 #define ERR_INIT_DEVICE            -11
 #define ERR_INIT_JOINT             -12
@@ -55,451 +40,522 @@
 // --- Constnants ---
 #define MIN_SPEED_RPM 1.0
 
+#ifdef CPP_COMPILE_MODE
+  // --- Dynamixel2Arduino
+  Dynamixel2Arduino::Dynamixel2Arduino(int serialPort, int dirPin) {;}
+  Dynamixel2Arduino::Dynamixel2Arduino() {;}
 
-class DynamixelManipulator {
-public:
-  Joint::posDeg realPositions[this.jointsCount];
-  Joint::speedDPS realSpeeds[this.jointsCount];
-  Joint::currentMA realCurrents[this.jointsCount];
+  void Dynamixel2Arduino::begin(int baudrate) {
+    std::cout << "DXL INIT BAUDRATE:" << baudrate << std::endl;
+  }
+  void Dynamixel2Arduino::setPortProtocolVersion(float protocolVersion) {
+    std::cout << "DXL INIT PROTOCOL VERSION:" << protocolVersion << std::endl;
+  }
+  bool Dynamixel2Arduino::ping(unsigned jointId) {
+    return true;
+  }
+  unsigned Dynamixel2Arduino::getModelNumber(unsigned jointId) {
+    return 1234;
+  }
+  unsigned Dynamixel2Arduino::setOperatingMode(unsigned jointId, unsigned opMode) {
+    return 1234;
+  }
 
-//  Joint::speedDPS limitSpeeds[this.jointsCount];
-//  Joint::currentMA limitCurrents[this.jointsCount];
+  unsigned Dynamixel2Arduino::getPresentCurrent(unsigned jointId, unsigned unit) {return 0;}
+  unsigned Dynamixel2Arduino::getPresentVelocity(unsigned jointId, unsigned unit) {return 0;}
+  unsigned Dynamixel2Arduino::getPresentPosition(unsigned jointId, unsigned unit) {return 0;}
 
-  DynamixelManipulator(
-      size_t jointsCount,
-      const Joint::posDeg* minJointsPoses,
-      const Joint::posDeg* maxJointPoses,
-      const Joint::id* jointsIds,
-      USBSerial serialPort = DXL_SERIAL,
-      unsigned baudrate = BAUDRATE,
-      unsigned dirPin = DXL_DIR_PIN,
-      float protocolVersion = DXL_PROTOCOL_VERSION,
-  ) {
-    this.jointsCount = jointsCount;
-    this.minJointsPoses = minJointsPoses;
-    this.maxJointsPoses = maxJointsPoses;
+  bool Dynamixel2Arduino::setGoalCurrent(unsigned jointId, unsigned val, unsigned unit) {return true;}
+  bool Dynamixel2Arduino::setGoalVelocity(unsigned jointId, unsigned val, unsigned unit) {return true;}
+  bool Dynamixel2Arduino::setGoalPosition(unsigned jointId, unsigned val, unsigned unit) {return true;}
 
-    this.dxl = Dynamixel2Arduino(serialPort, dirPin);
+  bool Dynamixel2Arduino::torqueOn(unsigned jointId) {return true;}
+  bool Dynamixel2Arduino::torqueOff(unsigned jointId) {return true;}
 
-    // --- Init serial port to log data in computer console
-    Serial.begin(baudrate);
-    while (!Serial) {;} // --- Wait for opening serial port from computer
+  // --- SerialPort
+  void SerialPort::begin(int baudrate) {
+    std::cout << "SERIAL INIT BAUDRATE:" << baudrate << std::endl;
+  }
+  void SerialPort::print(auto value) {
+    std::cout << value;
+  }
+  void SerialPort::print(float value) {
+    std::cout << value;
+  }
+  void SerialPort::print() {
+  }
+  void SerialPort::println(auto value) {
+    std::cout << value << std::endl;
+  }
+  void SerialPort::println(float value) {
+    std::cout << value << std::endl;
+  }
+  void SerialPort::println() {
+    std::cout << std::endl;
+  }
+  bool SerialPort::operator ! () {
+    return false;
+  }
+  SerialPort _dynamixel_manipulator_serial;
 
-    // --- Init Dynamixel class
-    this.dxl.begin(baudrate);
-    this.dxl.setPortProtocolVersion(protocolVersion);
+  void delay(int ms) {}
+#endif
 
-    // --- Init every joint
-    bool result = false;
-    FOR_JOINTS_IDX(idx) {
-      const Joint::id jointId = idx + 1;
-      this.jointsIds[idx] = jointId;
+DynamixelManipulator::DynamixelManipulator(
+  size_t jointsCount,
+  const Joint::posDeg* minJointsPoses,
+  const Joint::posDeg* maxJointsPoses,
+  const Joint::id* jointsIds,
+  USBSerial serialPort,
+  unsigned baudrate,
+  unsigned dirPin,
+  float protocolVersion
+) {
+  this->jointsCount = jointsCount;
 
-      result = this.dxl.ping(jointId);
-      if (result == false) {
-        PRINT_SETUP("Failed to ping joint ID: ");
-        PRINT_SETUPln(jointId);
-        exit(ERR_INIT_JOINT);
-      }
-      PRINT_SETUP("Succeeded to ping. ");
-      PRINT_SETUP("id: [");
-      PRINT_SETUP(jointId);
+  this->dxl = Dynamixel2Arduino(serialPort, dirPin);
 
-      unsigned modelNumber = this.dxl.getModelNumber(jointId);
-      PRINT_SETUP("] ModelNumber : ");
-      PRINT_SETUPln(modelNumber);
+  this->realPositions = this->_newJointsArray<Joint::posDeg>();
+  this->realSpeeds = this->_newJointsArray<Joint::speedDPS>();
+  this->realCurrents = this->_newJointsArray<Joint::currentMA>();
 
-      result = this.dxl.setOperatingMode(jointId, ControlTableItem::OP_POSITION);
-      if (result == false) {
-        PRINT_SETUPln("Failed to set position mode");
-        exit(ERR_SET_JOINT_MODE);
-      }
+  this->minJointsPoses = this->_newJointsArray<Joint::posDeg>();
+  this->maxJointsPoses = this->_newJointsArray<Joint::posDeg>();
+  this->jointsIds = this->_newJointsArray<Joint::id>();
+  this->prevPositions = this->_newJointsArray<Joint::posDeg>();
 
-      // --- Limit the maximum Speed in Position Control Mode. Use 0 to Max speed
-      float speed = MAX_JOINT_Speed_PERCENT;
-      if (jointId == 1)
-        speed *= 2;
-      result = dxl.setGoalVelocity(jointId, speed, ControlTableItem::UNIT_PERCENT);
-      if (result == false) {
-        PRINT_SETUP("Failed to set max Speed of joint ID: ");
-        PRINT_SETUPln(jointId);
-        exit(ERR_SET_MAX_JOINT_Speed);
-      }
+  FOR_JOINTS_IDX(i) {
+    this->minJointsPoses[i] = minJointsPoses[i];
+    this->maxJointsPoses[i] = maxJointsPoses[i];
+  }
+
+  // --- Init serial port to log data in computer console
+  Serial.begin(baudrate);
+  while (!Serial) {;} // --- Wait for opening serial port from computer
+
+  // --- Init Dynamixel class
+  this->dxl.begin(baudrate);
+  this->dxl.setPortProtocolVersion(protocolVersion);
+
+  // --- Init every joint
+  bool result = false;
+  FOR_JOINTS_IDX(idx) {
+    const Joint::id jointId = idx + 1;
+    if (jointsIds == NULL) {
+      this->jointsIds[idx] = jointId;
+    } else {
+      this->jointsIds[idx] = jointsIds[idx];
     }
-    PRINT_SETUPln();
 
-    #ifdef GRAPH_MODE
-        FOR_JOINTS_ID(i) {
-          Serial.print("Pos[");
-          Serial.print(i);
-          Serial.print("] ");
-        }
-        FOR_JOINTS_ID(i) {
-          Serial.print("Spd[");
-          Serial.print(i);
-          Serial.print("] ");
-        }
-    //    FOR_JOINTS_ID(i) {
-    //      Serial.print("Cur[");
-    //      Serial.print(i);
-    //      Serial.print("] ");
-    //    }
-        Serial.println();
-    #endif
-  }
-  ~DynamixelManipulator() {
-  }
+    result = this->dxl.ping(jointId);
+    if (result == false) {
+      PRINT_SETUP("Failed to ping joint ID: ");
+      PRINT_SETUPln(jointId);
+      exit(ERR_INIT_JOINT);
+    }
+    PRINT_SETUP("Succeeded to ping. ");
+    PRINT_SETUP("id: [");
+    PRINT_SETUP(jointId);
 
-  // --- Basic
-  void LOOP_UPDATE() {
-    this.readAllJointsPositionsDeg(this.realPositions);
-    this.readAllJointsSpeedsDPS(this.realSpeeds);
-    this.readAllJointsCurrentsMA(this.realCurrents);
+    unsigned modelNumber = this->dxl.getModelNumber(jointId);
+    PRINT_SETUP("] ModelNumber : ");
+    PRINT_SETUPln(modelNumber);
+
+    result = this->dxl.setOperatingMode(jointId, ControlTableItem::OP_POSITION);
+    if (result == false) {
+      PRINT_SETUPln("Failed to set position mode");
+      exit(ERR_SET_JOINT_MODE);
+    }
+
+    // --- Limit the maximum Speed in Position Control Mode. Use 0 to Max speed
+    float speed = MAX_JOINT_SPEED_PERCENT;
+    if (jointId == 1)
+      speed *= 2;
+    result = dxl.setGoalVelocity(jointId, speed, ControlTableItem::UNIT_PERCENT);
+    if (result == false) {
+      PRINT_SETUP("Failed to set max Speed of joint ID: ");
+      PRINT_SETUPln(jointId);
+      exit(ERR_SET_JOINT_SPEED);
+    }
   }
-  void LOOP_PRINT() {
-    #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
-      PRINT_LIST(this.realPositions);
-      PRINT_LIST(this.realSpeeds);
-      // PRINT_LIST(this.realCurrents);
+  PRINT_SETUPln();
+
+  #ifdef GRAPH_MODE
+      FOR_JOINTS_ID(i) {
+        Serial.print("Pos[");
+        Serial.print(i);
+        Serial.print("] ");
+      }
+      FOR_JOINTS_ID(i) {
+        Serial.print("Spd[");
+        Serial.print(i);
+        Serial.print("] ");
+      }
+  //    FOR_JOINTS_ID(i) {
+  //      Serial.print("Cur[");
+  //      Serial.print(i);
+  //      Serial.print("] ");
+  //    }
       Serial.println();
-    #else
-      this.printPositionsIfChanged();
-    #endif
-  }
-  void DELAY() {
-    delay(UPDATE_DELAY * 1000);
-  }
+  #endif
+}
 
-  // --- Position
-  void setJointPosRaw(Joint::id id, Joint::posRaw pos) {
-    this.setJointPosAny(id, pos, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsPosesRaw(Joint::posRaw jointsPos) {
-    this.setAllJointsPosAny(jointsPos, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsPosesRaw(Joint::posRaw* jointsPoses) {
-    this.setAllJointsPosAny(jointsPoses, "", ControlTableItem::UNIT_RAW);
-  }
+DynamixelManipulator::~DynamixelManipulator() {
+  free(this->realPositions);
+  free(this->realSpeeds);
+  free(this->realCurrents);
+}
 
-  void setJointPosDeg(Joint::id id, Joint::posDeg pos) {
-    this.setJointPosAny(id, pos, "°", ControlTableItem::UNIT_DEGREE);
-  }
-  void setAllJointsPosesDeg(Joint::posDeg jointsPos) {
-    this.setAllJointsPosAny(jointsPos, "°", ControlTableItem::UNIT_DEGREE);
-  }
-  void setAllJointsPosesDeg(Joint::posDeg* jointsPoses) {
-    this.setAllJointsPosAny(jointsPoses, "°", ControlTableItem::UNIT_DEGREE);
-  }
-
-  // --- Speed
-  void setJointSpeedRaw(Joint::id id, Joint::speedRaw speed) {
-    this.setJointSpeedAny(id, speed, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsSpeedsRaw(Joint::speedRaw jointsSpeed) {
-    this.setAllJointsSpeedsAny(jointsSpeed, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsSpeedsRaw(Joint::speedRaw* jointsSpeeds) {
-    this.setAllJointsSpeedsAny(jointsSpeeds, "", ControlTableItem::UNIT_RAW);
-  }
-
-  void setJointSpeedPercent(Joint::id id, Joint::speedPercent speed) {
-    this.setJointSpeedAny(id, speed, "%", ControlTableItem::UNIT_PERCENT);
-  }
-  void setAllJointsSpeedsPercent(Joint::speedPercent jointsSpeed) {
-    this.setAllJointsSpeedsAny(jointsSpeed, "%", ControlTableItem::UNIT_PERCENT);
-  }
-  void setAllJointsSpeedsPercent(Joint::speedPercent* jointsSpeeds) {
-    this.setAllJointsSpeedsAny(jointsSpeeds, "%", ControlTableItem::UNIT_PERCENT);
-  }
-
-  void setJointSpeedRPM(Joint::id id, Joint::speedRPM speed) {
-    this.setJointSpeedAny(id, speed, "RPM", ControlTableItem::UNIT_RPM);
-  }
-  void setAllJointsSpeedsRPM(Joint::speedRPM jointsSpeed) {
-    this.setAllJointsSpeedsAny(jointsSpeed, "RPM", ControlTableItem::UNIT_RPM);
-  }
-  void setAllJointsSpeedsRPM(Joint::speedRPM* jointsSpeeds) {
-    this.setAllJointsSpeedsAny(jointsSpeeds, "RPM", ControlTableItem::UNIT_RPM);
-  }
-
-  void setJointSpeedDPS(Joint::id id, Joint::speedDPS speed) {
-    this.setJointSpeedAny(id, speed / 6.0, "DPS", ControlTableItem::UNIT_RPM);
-  }
-  void setAllJointsSpeedsDPS(Joint::speedDPS jointsSpeed) {
-    this.setAllJointsSpeedsAny(jointsSpeed / 6.0, "DPS", ControlTableItem::UNIT_RPM);
-  }
-  void setAllJointsSpeedsDPS(Joint::speedDPS* jointsSpeeds) {
-    this.setAllJointsSpeedsAny(jointsSpeeds / 6.0, "DPS", ControlTableItem::UNIT_RPM);
-  }
-
-  // --- Current
-  void setJointCurrentRaw (Joint::id id, Joint::currentRaw current) {
-    this.setJointCurrentAny(id, current, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsCurrentsRaw(Joint::currentRaw jointsCurrent) {
-    this.setAllJointsCurrentsAny(jointsCurrent, "", ControlTableItem::UNIT_RAW);
-  }
-  void setAllJointsCurrentsRaw(Joint::currentRaw* jointsCurrents) {
-    this.setAllJointsCurrentsAny(jointsCurrents, "", ControlTableItem::UNIT_RAW);
-  }
-
-  void setJointCurrentPercent (Joint::id id, Joint::currentPercent current) {
-    this.setJointCurrentAny(id, current, "%", ControlTableItem::UNIT_PERCENT);
-  }
-  void setAllJointsCurrentsPercent(Joint::currentPercent jointsCurrent) {
-    this.setAllJointsCurrentsAny(jointsCurrent, "%", ControlTableItem::UNIT_PERCENT);
-  }
-  void setAllJointsCurrentsPercent(Joint::currentPercent* jointsCurrents) {
-    this.setAllJointsCurrentsAny(jointsCurrents, "%", ControlTableItem::UNIT_PERCENT);
-  }
-
-  void setJointCurrentMA (Joint::id id, Joint::currentMA current) {
-    this.setJointCurrentAny(id, current, "mA", ControlTableItem::UNIT_MA);
-  }
-  void setAllJointsCurrentsMA(Joint::currentMA jointsCurrent) {
-    this.setAllJointsCurrentsAny(jointsCurrent, "mA", ControlTableItem::UNIT_MA);
-  }
-  void setAllJointsCurrentsMA(Joint::currentMA* jointsCurrents) {
-    this.setAllJointsCurrentsAny(jointsCurrents, "mA", ControlTableItem::UNIT_MA);
-  }
-
-  // --- Torque
-  void enableJoint(Joint::id id) {
-    bool result = this.dxl.torqueOn(idx);
-    if (result == false) {
-      PRINT_ERR("Failed to enable joint ID: ");
-      PRINT_ERRln(idx);
-      exit(ERR_ENABLE_JOINT);
-    }
-  }
-  void enableAllJoints() {
-    FOR_JOINTS_ID(id) {
-      this.enableJoint(id);
-    }
-  }
-  void disableJoint(Joint::id id) {
-    bool result = this.dxl.torqueOff(idx);
-    if (result == false) {
-      PRINT_ERR("Failed to disable joint ID: ");
-      PRINT_ERRln(idx);
-      exit(ERR_ENABLE_JOINT);
-    }
-  }
-  void disableAllJoints() {
-    FOR_JOINTS_ID(id) {
-      this.disableJoint(id);
-    }
-  }
-
-  // ------- Print stats --------
-  void printPositions() {
-    Serial.print("[POS](°): ");
-    PRINT_LIST(this.realPositions);
+// --- Basic
+void DynamixelManipulator::LOOP_UPDATE() {
+  this->readAllJointsPositionsDeg(this->realPositions);
+  this->readAllJointsSpeedsDPS(this->realSpeeds);
+  this->readAllJointsCurrentsMA(this->realCurrents);
+}
+void DynamixelManipulator::LOOP_PRINT() {
+  #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
+    PRINT_LIST(this->realPositions);
+    PRINT_LIST(this->realSpeeds);
+    // PRINT_LIST(this->realCurrents);
     Serial.println();
-  }
-  void printSpeeds() {
-    Serial.print("[VEL](DPS): ");
-    PRINT_LIST(this.realSpeeds);
-    Serial.println();
-  }
-  void printCurrents() {
-    Serial.print("[CUR](mA): ");
-    PRINT_LIST(this.realCurrents);
-    Serial.println();
-  }
+  #else
+    this->printPositionsIfChanged();
+  #endif
+}
+void DynamixelManipulator::DELAY() {
+  delay(UPDATE_DELAY * 1000);
+}
 
-  void printPositionsIfChanged() {
-    static Joint::posDeg prevPositions[this.jointsCount];
-    static bool isInitialized = false;
+// --- Position
+void DynamixelManipulator::setJointPosRaw(Joint::id id, Joint::posRaw pos) {
+  this->setJointPosAny(id, pos, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsPosesRaw(Joint::posRaw jointsPos) {
+  this->setAllJointsPosAny(jointsPos, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsPosesRaw(Joint::posRaw* jointsPoses) {
+  this->setAllJointsPosAny(jointsPoses, "", ControlTableItem::UNIT_RAW);
+}
 
-    // copy actual positions to "prevPositions". Only 1 time
-    if (!isInitialized) {
-      FOR_JOINTS_IDX(i) {
-        prevPositions[i] = this.realPositions[i];
-      }
-      isInitialized = true;
-      return;
-    }
+void DynamixelManipulator::setJointPosDeg(Joint::id id, Joint::posDeg pos) {
+  this->setJointPosAny(id, pos, "°", ControlTableItem::UNIT_DEGREE);
+}
+void DynamixelManipulator::setAllJointsPosesDeg(Joint::posDeg jointsPos) {
+  this->setAllJointsPosAny(jointsPos, "°", ControlTableItem::UNIT_DEGREE);
+}
+void DynamixelManipulator::setAllJointsPosesDeg(Joint::posDeg* jointsPoses) {
+  this->setAllJointsPosAny(jointsPoses, "°", ControlTableItem::UNIT_DEGREE);
+}
 
-    // check if some position changed
-    bool isChanged = false;
+// --- Speed
+void DynamixelManipulator::setJointSpeedRaw(Joint::id id, Joint::speedRaw speed) {
+  this->setJointSpeedAny(id, speed, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsSpeedsRaw(Joint::speedRaw jointsSpeed) {
+  this->setAllJointsSpeedsAny(jointsSpeed, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsSpeedsRaw(Joint::speedRaw* jointsSpeeds) {
+  this->setAllJointsSpeedsAny(jointsSpeeds, "", ControlTableItem::UNIT_RAW);
+}
+
+void DynamixelManipulator::setJointSpeedPercent(Joint::id id, Joint::speedPercent speed) {
+  this->setJointSpeedAny(id, speed, "%", ControlTableItem::UNIT_PERCENT);
+}
+void DynamixelManipulator::setAllJointsSpeedsPercent(Joint::speedPercent jointsSpeed) {
+  this->setAllJointsSpeedsAny(jointsSpeed, "%", ControlTableItem::UNIT_PERCENT);
+}
+void DynamixelManipulator::setAllJointsSpeedsPercent(Joint::speedPercent* jointsSpeeds) {
+  this->setAllJointsSpeedsAny(jointsSpeeds, "%", ControlTableItem::UNIT_PERCENT);
+}
+
+void DynamixelManipulator::setJointSpeedRPM(Joint::id id, Joint::speedRPM speed) {
+  this->setJointSpeedAny(id, speed, "RPM", ControlTableItem::UNIT_RPM);
+}
+void DynamixelManipulator::setAllJointsSpeedsRPM(Joint::speedRPM jointsSpeed) {
+  this->setAllJointsSpeedsAny(jointsSpeed, "RPM", ControlTableItem::UNIT_RPM);
+}
+void DynamixelManipulator::setAllJointsSpeedsRPM(Joint::speedRPM* jointsSpeeds) {
+  this->setAllJointsSpeedsAny(jointsSpeeds, "RPM", ControlTableItem::UNIT_RPM);
+}
+
+void DynamixelManipulator::setJointSpeedDPS(Joint::id id, Joint::speedDPS speed) {
+  this->setJointSpeedAny(id, speed / 6.0, "DPS", ControlTableItem::UNIT_RPM);
+}
+void DynamixelManipulator::setAllJointsSpeedsDPS(Joint::speedDPS jointsSpeed) {
+  this->setAllJointsSpeedsAny(jointsSpeed / 6.0, "DPS", ControlTableItem::UNIT_RPM);
+}
+void DynamixelManipulator::setAllJointsSpeedsDPS(Joint::speedDPS* jointsSpeeds) {
+  FOR_JOINTS_ID(id) {
+    this->setJointSpeedAny(id, jointsSpeeds[__i] / 6.0, "DPS", ControlTableItem::UNIT_RPM);
+  }
+  //this->setAllJointsSpeedsAny(jointsSpeeds / 6.0, "DPS", ControlTableItem::UNIT_RPM);
+}
+
+// --- Current
+void DynamixelManipulator::setJointCurrentRaw (Joint::id id, Joint::currentRaw current) {
+  this->setJointCurrentAny(id, current, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsCurrentsRaw(Joint::currentRaw jointsCurrent) {
+  this->setAllJointsCurrentsAny(jointsCurrent, "", ControlTableItem::UNIT_RAW);
+}
+void DynamixelManipulator::setAllJointsCurrentsRaw(Joint::currentRaw* jointsCurrents) {
+  this->setAllJointsCurrentsAny(jointsCurrents, "", ControlTableItem::UNIT_RAW);
+}
+
+void DynamixelManipulator::setJointCurrentPercent (Joint::id id, Joint::currentPercent current) {
+  this->setJointCurrentAny(id, current, "%", ControlTableItem::UNIT_PERCENT);
+}
+void DynamixelManipulator::setAllJointsCurrentsPercent(Joint::currentPercent jointsCurrent) {
+  this->setAllJointsCurrentsAny(jointsCurrent, "%", ControlTableItem::UNIT_PERCENT);
+}
+void DynamixelManipulator::setAllJointsCurrentsPercent(Joint::currentPercent* jointsCurrents) {
+  this->setAllJointsCurrentsAny(jointsCurrents, "%", ControlTableItem::UNIT_PERCENT);
+}
+
+void DynamixelManipulator::setJointCurrentMA (Joint::id id, Joint::currentMA current) {
+  this->setJointCurrentAny(id, current, "mA", ControlTableItem::UNIT_MA);
+}
+void DynamixelManipulator::setAllJointsCurrentsMA(Joint::currentMA jointsCurrent) {
+  this->setAllJointsCurrentsAny(jointsCurrent, "mA", ControlTableItem::UNIT_MA);
+}
+void DynamixelManipulator::setAllJointsCurrentsMA(Joint::currentMA* jointsCurrents) {
+  this->setAllJointsCurrentsAny(jointsCurrents, "mA", ControlTableItem::UNIT_MA);
+}
+
+// --- Torque
+void DynamixelManipulator::enableJoint(Joint::id id) {
+  bool result = this->dxl.torqueOn(id);
+  if (result == false) {
+    PRINT_ERR("Failed to enable joint ID: ");
+    PRINT_ERRln(id);
+    exit(ERR_ENABLE_JOINT);
+  }
+}
+void DynamixelManipulator::enableAllJoints() {
+  FOR_JOINTS_ID(id) {
+    this->enableJoint(id);
+  }
+}
+void DynamixelManipulator::disableJoint(Joint::id id) {
+  bool result = this->dxl.torqueOff(id);
+  if (result == false) {
+    PRINT_ERR("Failed to disable joint ID: ");
+    PRINT_ERRln(id);
+    exit(ERR_ENABLE_JOINT);
+  }
+}
+void DynamixelManipulator::disableAllJoints() {
+  FOR_JOINTS_ID(id) {
+    this->disableJoint(id);
+  }
+}
+
+// ------- Print stats --------
+void DynamixelManipulator::printPositions() {
+  Serial.print("[POS](°): ");
+  PRINT_LIST(this->realPositions);
+  Serial.println();
+}
+void DynamixelManipulator::printSpeeds() {
+  Serial.print("[VEL](DPS): ");
+  PRINT_LIST(this->realSpeeds);
+  Serial.println();
+}
+void DynamixelManipulator::printCurrents() {
+  Serial.print("[CUR](mA): ");
+  PRINT_LIST(this->realCurrents);
+  Serial.println();
+}
+
+void DynamixelManipulator::printPositionsIfChanged() {
+  static bool isInitialized = false;
+
+  // copy actual positions to "prevPositions". Only 1 time
+  if (!isInitialized) {
     FOR_JOINTS_IDX(i) {
-      if (prevPositions[i] != this.realPositions[i]) {
-        isChanged = true;
-        break;
-      }
+      this->prevPositions[i] = this->realPositions[i];
     }
+    isInitialized = true;
+    return;
+  }
 
-    // if not changed - not print
-    if (!isChanged)
-      return;
+  // check if some position changed
+  bool isChanged = false;
+  FOR_JOINTS_IDX(i) {
+    if (this->prevPositions[i] != this->realPositions[i]) {
+      isChanged = true;
+      break;
+    }
+  }
 
-    // print positions and copy changed
-    Serial.print("[POS CHANGED]: ");
-    FOR_JOINTS_IDX(i) {
-      if (prevPositions[i] != this.realPositions[i]) {
-        Serial.print("<");
-        Serial.print(list[i]);
-        Serial.print("> ");
-        prevPositions[i] = this.realPositions[i];
-        continue;
-      }
-      Serial.print(" ");
-      Serial.print(this.realPositions[i]);
-      Serial.print("  ");
-    }
-    Serial.println("");
-  }
-protected:
-  size_t jointsCount;
-  Dynamixel2Arduino dxl;
+  // if not changed - not print
+  if (!isChanged)
+    return;
 
-  // -------- Set stats --------
-  // - Positions
-  void setJointPosAny(Joint::id id, float position, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    PRINT_SET("[SET POS][");
-    PRINT_SET(idx);
-    PRINT_SET("]: ");
-    PRINT_SET(position);
-    PRINT_SETln(unitStr);
-    if (unit == ControlTableItem::UNIT_DEGREE && (position < this.minJointsPoses(id - 1) || position > this.maxJointsPoses(id - 1))) {
-      PRINT_ERR("Failed to set position. Position for this point must be between ");
-      PRINT_ERR(MIN_POS(idx-1));
-      PRINT_ERR("° and ");
-      PRINT_ERR(MAX_POS(idx-1));
-      PRINT_ERRln("°");
-      exit(ERR_SET_JOINT_POSITION);
+  // print positions and copy changed
+  Serial.print("[POS CHANGED]: ");
+  FOR_JOINTS_IDX(i) {
+    if (this->prevPositions[i] != this->realPositions[i]) {
+      Serial.print("<");
+      Serial.print(this->realPositions[i]);
+      Serial.print("> ");
+      this->prevPositions[i] = this->realPositions[i];
+      continue;
     }
-    bool result = this.dxl.setGoalPosition(idx, position, unit);
-    if (result == false) {
-      PRINT_ERR("Failed to set position ");
-      PRINT_ERR(position);
-      PRINT_ERR(unitStr);
-      PRINT_ERR(" on joint ID: ");
-      PRINT_ERRln(idx);
-      exit(ERR_SET_JOINT_POSITION);
-    }
+    Serial.print(" ");
+    Serial.print(this->realPositions[i]);
+    Serial.print("  ");
   }
-  void setAllJointsPosAny(float position, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointPosAny(id, position, unitStr, unit);
-    }
+  Serial.println("");
+}
+
+// -------- Set stats --------
+// - Positions
+void DynamixelManipulator::setJointPosAny(Joint::id id, float position, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  PRINT_SET("[SET POS][");
+  PRINT_SET(id);
+  PRINT_SET("]: ");
+  PRINT_SET(position);
+  PRINT_SETln(unitStr);
+  if (unit == ControlTableItem::UNIT_DEGREE && (position < this->minJointsPoses[id - 1] || position > this->maxJointsPoses[id - 1])) {
+    PRINT_ERR("Failed to set position. Position for this joint must be between ");
+    PRINT_ERR(this->minJointsPoses[id-1]);
+    PRINT_ERR("° and ");
+    PRINT_ERR(this->maxJointsPoses[id-1]);
+    PRINT_ERRln("°");
+    exit(ERR_SET_JOINT_POSITION);
   }
-  void setAllJointsPosAny(const float* positions, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointPosAny(id, positions[__i], unitStr, unit);
-    }
+  bool result = this->dxl.setGoalPosition(id, position, unit);
+  if (result == false) {
+    PRINT_ERR("Failed to set position ");
+    PRINT_ERR(position);
+    PRINT_ERR(unitStr);
+    PRINT_ERR(" on joint ID: ");
+    PRINT_ERRln(id);
+    exit(ERR_SET_JOINT_POSITION);
   }
-  // - Speeds
-  void setJointSpeedAny(Joint::id id, float speed, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    PRINT_SET("[SET VEL][");
-    PRINT_SET(idx);
-    PRINT_SET("]: ");
+}
+void DynamixelManipulator::setAllJointsPosAny(float position, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointPosAny(id, position, unitStr, unit);
+  }
+}
+void DynamixelManipulator::setAllJointsPosAny(const float* positions, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointPosAny(id, positions[__i], unitStr, unit);
+  }
+}
+// - Speeds
+void DynamixelManipulator::setJointSpeedAny(Joint::id id, float speed, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  PRINT_SET("[SET VEL][");
+  PRINT_SET(id);
+  PRINT_SET("]: ");
+  PRINT_SET(speed);
+  PRINT_SETln(unitStr);
+  if (unit == ControlTableItem::UNIT_RPM && speed < MIN_SPEED_RPM) {
+    speed = MIN_SPEED_RPM;
+    PRINT_SET(" -> ");
     PRINT_SET(speed);
-    PRINT_SETln(unitStr);
-    if (unit == ControlTableItem::UNIT_RPM && speed < MIN_SPEED_RPM) {
-      speed = MIN_SPEED_RPM;
-      PRINT_SET(" -> ");
-      PRINT_SET(speed);
-      PRINT_SET(" RPM");
-      PRINT_SETln();
-    }
-    bool result = this.dxl.setGoalVelocity(idx, speed, unit);
-    if (result == false) {
-      PRINT_ERR("Failed to set speed ");
-      PRINT_ERR(speed);
-      PRINT_ERR(unitStr);
-      PRINT_ERR(" on joint ID: ");
-      PRINT_ERRln(idx);
-      // exit(ERR_SET_JOINT_SPEED);
-    }
+    PRINT_SET(" RPM");
+    PRINT_SETln();
   }
-  void setAllJointsSpeedsAny(float speed, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointSpeedAny(id, speed, unitStr, unit);
-    }
+  bool result = this->dxl.setGoalVelocity(id, speed, unit);
+  if (result == false) {
+    PRINT_ERR("Failed to set speed ");
+    PRINT_ERR(speed);
+    PRINT_ERR(unitStr);
+    PRINT_ERR(" on joint ID: ");
+    PRINT_ERRln(id);
+    // exit(ERR_SET_JOINT_SPEED);
   }
-  void setAllJointsSpeedsAny(const float* speeds, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointSpeedAny(id, speeds[__i], unitStr, unit);
-    }
+}
+void DynamixelManipulator::setAllJointsSpeedsAny(float speed, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointSpeedAny(id, speed, unitStr, unit);
   }
-  // - Currents
-  void setJointCurrentAny(Joint::id id, float current, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    PRINT_SET("[SET CUR][");
-    PRINT_SET(idx);
-    PRINT_SET("]: ");
-    PRINT_SET(current);
-    PRINT_SETln(unitStr);
-    bool result = this.dxl.setGoalCurrent(idx, current, unit);
-    if (result == false) {
-      PRINT_ERR("Failed to set current ");
-      PRINT_ERR(current);
-      PRINT_ERR(unitStr);
-      PRINT_ERR(" on joint ID: ");
-      PRINT_ERRln(idx);
-      exit(ERR_SET_JOINT_CURRENT);
-    }
+}
+void DynamixelManipulator::setAllJointsSpeedsAny(const float* speeds, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointSpeedAny(id, speeds[__i], unitStr, unit);
   }
-  void setAllJointsCurrentsAny(float current, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointCurrentAny(id, current, unitStr, unit);
-    }
+}
+// - Currents
+void DynamixelManipulator::setJointCurrentAny(Joint::id id, float current, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  PRINT_SET("[SET CUR][");
+  PRINT_SET(id);
+  PRINT_SET("]: ");
+  PRINT_SET(current);
+  PRINT_SETln(unitStr);
+  bool result = this->dxl.setGoalCurrent(id, current, unit);
+  if (result == false) {
+    PRINT_ERR("Failed to set current ");
+    PRINT_ERR(current);
+    PRINT_ERR(unitStr);
+    PRINT_ERR(" on joint ID: ");
+    PRINT_ERRln(id);
+    exit(ERR_SET_JOINT_CURRENT);
   }
-  void setAllJointsCurrentsAny(const float* currents, const char* unitStr, ControlTableItem::ParamUnit unit) {
-    FOR_JOINTS_ID(id) {
-      this.setJointCurrentAny(id, currents[__i], unitStr, unit);
-    }
+}
+void DynamixelManipulator::setAllJointsCurrentsAny(float current, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointCurrentAny(id, current, unitStr, unit);
   }
+}
+void DynamixelManipulator::setAllJointsCurrentsAny(const float* currents, const char* unitStr, ControlTableItem::ParamUnit unit) {
+  FOR_JOINTS_ID(id) {
+    this->setJointCurrentAny(id, currents[__i], unitStr, unit);
+  }
+}
 
-  // -------- Read stats --------
-  void readAllJointsPositionsRaw(Joint::posRaw* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentPosition(id, UNIT_RAW);
-    }
+// -------- Read stats --------
+void DynamixelManipulator::readAllJointsPositionsRaw(Joint::posRaw* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentPosition(id, ControlTableItem::UNIT_RAW);
   }
-  void readAllJointsPositionsDeg(Joint::posDeg* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentPosition(id, UNIT_DEGREE);
-    }
+}
+void DynamixelManipulator::readAllJointsPositionsDeg(Joint::posDeg* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentPosition(id, ControlTableItem::UNIT_DEGREE);
   }
-  void readAllJointsSpeedsRaw(Joint::speedRaw* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentVelocity(id, UNIT_RAW);
-    }
+}
+void DynamixelManipulator::readAllJointsSpeedsRaw(Joint::speedRaw* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentVelocity(id, ControlTableItem::UNIT_RAW);
   }
-  void readAllJointsSpeedsPercent(Joint::speedPercent* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentVelocity(id, UNIT_PERCENT);
-    }
+}
+void DynamixelManipulator::readAllJointsSpeedsPercent(Joint::speedPercent* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentVelocity(id, ControlTableItem::UNIT_PERCENT);
   }
-  void readAllJointsSpeedsRPM(Joint::speedRPM* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentVelocity(id, UNIT_RPM);
-    }
+}
+void DynamixelManipulator::readAllJointsSpeedsRPM(Joint::speedRPM* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentVelocity(id, ControlTableItem::UNIT_RPM);
   }
-  void readAllJointsSpeedsDPS(Joint::speedDPS* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentVelocity(id, UNIT_RPM * 6.0);
-    }
+}
+void DynamixelManipulator::readAllJointsSpeedsDPS(Joint::speedDPS* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentVelocity(id, ControlTableItem::UNIT_RPM * 6.0);
   }
-  void readAllJointsCurrentsRaw(Joint::currentRaw* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentCurrent(id, UNIT_RAW);
-    }
+}
+void DynamixelManipulator::readAllJointsCurrentsRaw(Joint::currentRaw* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentCurrent(id, ControlTableItem::UNIT_RAW);
   }
-  void readAllJointsCurrentsMA(Joint::currentMA* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentCurrent(id, UNIT_MA);
-    }
+}
+void DynamixelManipulator::readAllJointsCurrentsMA(Joint::currentMA* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentCurrent(id, ControlTableItem::UNIT_MA);
   }
-  void readAllJointsCurrentsPercent(Joint::currentPercent* targetList) {
-    FOR_JOINTS_ID(id) {
-      targetList[__i] = this.dxl.getPresentCurrent(id, UNIT_PERCENT);
-    }
+}
+void DynamixelManipulator::readAllJointsCurrentsPercent(Joint::currentPercent* targetList) {
+  FOR_JOINTS_ID(id) {
+    targetList[__i] = this->dxl.getPresentCurrent(id, ControlTableItem::UNIT_PERCENT);
   }
+}
 
-};
-
-
-#endif //  INCLUDE_DYNAMIXEL_MANIPULATOR_
+// -----
+template <typename T>
+T* DynamixelManipulator::_newJointsArray() {
+    return (T*)malloc(sizeof(T) * this->jointsCount);
+}

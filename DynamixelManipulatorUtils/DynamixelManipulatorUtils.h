@@ -9,8 +9,6 @@
 #ifndef MANIPULATOR_CLASS_VARIABLE
   #error You need to specify joints count in your manipulator class variable name with "#define MANIPULATOR_CLASS_VARIABLE <variable_name>"
 #endif
-#define FOR_JOINTS_IDX(name_of_var) for (Joint::index name_of_var = 0; name_of_var < MANIPULATOR_CLASS_VARIABLE.jointsCount; name_of_var++)
-#define FOR_JOINTS_ID(name_of_var) for (Joint::index __i = 0, name_of_var = MANIPULATOR_CLASS_VARIABLE.jointsIds[__i]; __i < MANIPULATOR_CLASS_VARIABLE.jointsCount; __i++, name_of_var = this.jointsIds[__i])
 
 
 #define KEYS_SECTION \

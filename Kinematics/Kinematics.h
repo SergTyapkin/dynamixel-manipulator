@@ -9,7 +9,7 @@
 #define _L2   13.5
 #define _L3   17.8
 
-void getAnglesByTargetPoint(float x, float y, float z, const float* currentPoses, float* listToExportPoses, unsigned jointsCount);
+void getAnglesByTargetPoint(float x, float y, float z, const float* currentPoses, float* listToExportPoses, unsigned jointsCount, float* minPoses, float* maxPoses);
 void getPointByAngles(const float* angles, float &exportX, float &exportY, float &exportZ);
 
 #endif //  INCLUDE_REVERSE_KINEMATICS_
