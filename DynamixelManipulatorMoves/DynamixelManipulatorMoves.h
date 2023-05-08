@@ -1,18 +1,19 @@
 #ifndef INCLUDE_DYNAMIXEL_MANIPULATOR_MOVES_
 #define INCLUDE_DYNAMIXEL_MANIPULATOR_MOVES_
 
+#include <stdlib.h>
+#include <math.h>
 
 #include "../DynamixelManipulator/DynamixelManipulator.h"
 #include "../Kinematics/Kinematics.h"
-#include <stdlib.h>
-#include <math.h>
+#include "../DynamixelManipulatorUtils/CppCompileUtils.h"
 
 
 #define MIN_JOINT_SPEED_DPS 6
 #define MAX_JOINT_SPEED_DPS 20
 #define MAX_JOINT_ACCELERATION_DPS 5
 
-#define Serial _dynamixel_manipulator_moves_serial
+#define ACCURACY_TARGET_DIST 2
 
 
 class DynamixelManipulatorMoves: public DynamixelManipulator {
@@ -31,6 +32,7 @@ public:
   );
   ~DynamixelManipulatorMoves();
   size_t addPoint(float x, float y, float z);
+  size_t addPosition(const Joint::posDeg* positions);
   void removeLastPoint();
   void removePoint(size_t pointIndex);
   void clearAllPoints();
@@ -38,7 +40,7 @@ public:
   void go();
   void _printMovingPath();
 
-  void _setTarget(Joint::posDeg* targetPositions);
+  void _setTarget(const Joint::posDeg* targetPositions);
   void LOOP_UPDATE();
 protected:
   Joint::posDeg* startPos;

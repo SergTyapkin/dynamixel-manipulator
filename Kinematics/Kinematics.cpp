@@ -59,7 +59,7 @@ float _delta(const float* phi, float xy0, float z0, unsigned jointsCount) {
 //  cout << "Delta: " << res << endl;
   return res;
 }
-float _penaltySum(const float* phi, unsigned jointsCount, float* minPoses, float* maxPoses) {
+float _penaltySum(const float* phi, unsigned jointsCount, const float* minPoses, const float* maxPoses) {
   float res = 0;
   for (unsigned i = 0; i < jointsCount; i++) {
     if (phi[i] < minPoses[i])
@@ -70,13 +70,13 @@ float _penaltySum(const float* phi, unsigned jointsCount, float* minPoses, float
 //  cout << "Penalty: " << res << endl;
   return res;
 }
-float _targetFunction(const float* phi, float xy0, float z0, unsigned jointsCount, float* minPoses, float* maxPoses) {
+float _targetFunction(const float* phi, float xy0, float z0, unsigned jointsCount, const float* minPoses, const float* maxPoses) {
   return _delta(phi, xy0, z0, jointsCount) + _WEIGHT_FOR_PENALTIES * _penaltySum(phi, jointsCount, minPoses, maxPoses);
 }
 
 // ------
 
-void getAnglesByTargetPoint(float x, float y, float z, const float* currentPoses, float* listToExportPoses, unsigned jointsCount, float* minPoses, float* maxPoses) {
+void getAnglesByTargetPoint(float x, float y, float z, const float* currentPoses, float* listToExportPoses, unsigned jointsCount, const float* minPoses, const float* maxPoses) {
   float H = 1;
 
   float prevPoses[jointsCount];

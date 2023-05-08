@@ -1,6 +1,7 @@
 #include "DynamixelManipulatorMoves.h"
+SerialPort _serial_dynamixel_manipulator_moves;
+#define Serial _serial_dynamixel_manipulator_moves
 
-SerialPort _dynamixel_manipulator_moves_serial;
 
 
 void DynamixelManipulatorMoves::getTimedSmoothMovingSpeedDPS(const Joint::posDeg* start, const Joint::posDeg* end, float duration, const float currentTime, float* exportSpeedsDPS) {
@@ -61,13 +62,44 @@ DynamixelManipulatorMoves::DynamixelManipulatorMoves(
 ): DynamixelManipulator(jointsCount, minJointsPoses, maxJointsPoses, jointsIds, serialPort, baudrate, dirPin, protocolVersion) {
   this->startPos = this->_newJointsArray<Joint::posDeg>();
   this->targetPos = this->_newJointsArray<Joint::posDeg>();
+
+  DynamixelManipulator::LOOP_UPDATE(); // получаем текущую позицию
+  FOR_JOINTS_IDX(i) {
+    this->startPos[i] = this->realPositions[i]; // копируем в стартовую
+  }
 }
 DynamixelManipulatorMoves::~DynamixelManipulatorMoves() {
   free(this->startPos);
   free(this->targetPos);
+
+  for (size_t i = 0; i < this->movingPathLen; i++) {
+    free(this->movingPath[i]);
+  }
+  if (this->movingPath != NULL)
+    free(this->movingPath);
 }
 
 size_t DynamixelManipulatorMoves::addPoint(float x, float y, float z) {
+  // получаем новую точку
+  Joint::posDeg* newPoses = (Joint::posDeg*)malloc(sizeof(Joint::posDeg) * this->jointsCount);
+  getAnglesByTargetPoint(x, y, z, this->realPositions, newPoses, this->jointsCount, this->minJointsPoses, this->maxJointsPoses);
+
+  // добавляем в путь
+  size_t res = this->addPosition(newPoses);
+
+  // не забываем очистить память
+  free(newPoses);
+  return res;
+}
+
+size_t DynamixelManipulatorMoves::addPosition(const Joint::posDeg* positions) {
+  // Создаём копию списка
+  Joint::posDeg* positionsCopy = (Joint::posDeg*)malloc(sizeof(Joint::posDeg) * this->jointsCount);
+  FOR_JOINTS_IDX(i) {
+    positionsCopy[i] = positions[i];
+  }
+
+  // расширяем путь
   if (this->movingPath == NULL) { // создаем список
     this->movingPathLen++;
     this->movingPath = (Joint::posDeg**)malloc(sizeof(Joint::posDeg*) * 1);
@@ -76,20 +108,18 @@ size_t DynamixelManipulatorMoves::addPoint(float x, float y, float z) {
     this->movingPath = (Joint::posDeg**)realloc(this->movingPath, sizeof(Joint::posDeg*) * this->movingPathLen);
   }
 
-  // получаем новую точку
-  Joint::posDeg* newPoses = (Joint::posDeg*)malloc(sizeof(Joint::posDeg) * this->jointsCount);
-  getAnglesByTargetPoint(x, y, z, this->realPositions, newPoses, this->jointsCount, this->minJointsPoses, this->maxJointsPoses);
-  this->movingPath[this->movingPathLen - 1] = newPoses;
+  // добавляем в путь
+  this->movingPath[this->movingPathLen - 1] = positionsCopy;
 
   // если точек до этого не было, то это новая цель
-  if (this->movingPathLen == 1) {
-    this->_setTarget(newPoses);
+  if (this->isRunning && this->movingPathLen == 1) {
+    this->_setTarget(positionsCopy);
   }
 
   return this->movingPathLen - 1;
 }
 
-void DynamixelManipulatorMoves::_setTarget(Joint::posDeg* targetPositions) {
+void DynamixelManipulatorMoves::_setTarget(const Joint::posDeg* targetPositions) {
   FOR_JOINTS_IDX(i) {
     this->startPos[i] = this->realPositions[i];
     this->targetPos[i] = targetPositions[i];
@@ -119,9 +149,17 @@ void DynamixelManipulatorMoves::clearAllPoints() {
 
 void DynamixelManipulatorMoves::pause() {
   this->isRunning = false;
+
+  this->setAllJointsSpeedsDPS(Joint::speedDPS(0)); // Остановить
+  this->currentTime = 0;
+  this->_setTarget(this->realPositions); // Ставим стартом текущую позицию, чтоб плавно потом продолжил из этой точки
 }
 void DynamixelManipulatorMoves::go() {
   this->isRunning = true;
+
+  if (this->movingPathLen > 0) {
+    this->_setTarget(this->movingPath[0]);
+  }
 }
 void DynamixelManipulatorMoves::_printMovingPath() {
   for (int i = 0; i < this->movingPathLen; i++) {
@@ -160,23 +198,25 @@ void DynamixelManipulatorMoves::LOOP_UPDATE() {
 
     // Проверяем, закончен ли текущий отрезок
     bool targetReached = true;
+//    FOR_JOINTS_IDX(i) { // Проверка, что мы вернулись к минимальной скорости
+//      if (currentSpeeds[i] > MIN_JOINT_SPEED_DPS) {
+//        targetReached = false;
+//        break;
+//      }
+//    }
     FOR_JOINTS_IDX(i) {
-      if (currentSpeeds[i] > MIN_JOINT_SPEED_DPS) {
+      Serial.println(abs(this->realPositions[i] - this->targetPos[i]));
+      if (abs(this->realPositions[i] - this->targetPos[i]) > ACCURACY_TARGET_DIST) {
         targetReached = false;
-        break;
       }
     }
+
     if (targetReached) { // Достигли прошлую цель
+      Serial.println("POINT REACHED");
       this->removePoint(0);
       if (this->movingPathLen > 0) { // Если есть новая цель
         this->_setTarget(this->movingPath[0]);
       }
     }
-  }
-
-  if (!this->isRunning) { // В случае паузы
-    this->setAllJointsSpeedsDPS(Joint::speedDPS(0)); // Остановить
-    this->currentTime = 0;
-    this->_setTarget(this->targetPos); // Ставим стартом текущую позицию, чтоб плавно потом продолжил из этой точки
   }
 }

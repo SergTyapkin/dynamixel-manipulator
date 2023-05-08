@@ -7,7 +7,7 @@
 
 // --- MACROses
 #ifndef MANIPULATOR_CLASS_VARIABLE
-  #error You need to specify joints count in your manipulator class variable name with "#define MANIPULATOR_CLASS_VARIABLE <variable_name>"
+  #error You need to specify your manipulator class variable name with "#define MANIPULATOR_CLASS_VARIABLE <variable_name>"
 #endif
 
 
@@ -20,22 +20,18 @@
     if (__readedSymbol == '\n') {      \
       __entersPressed += 1;            \
       __isEnterPressedNow = true;      \
-    }                                  \
-    if (__readedSymbol == 'Q') {       \
-      FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 7);           \
-      static pos __null_pos_1[] = {135, 180, 155, 164, 180, 170}; \
-      MANIPULATOR_CLASS_VARIABLE.setAllJointsPositions(__null_pos_1);                        \
+    } else if (__readedSymbol == 'Q') {   \
+      MANIPULATOR_CLASS_VARIABLE.setAllJointsSpeedsDPS(7);           \
+      static Joint::posDeg __null_pos_1[] = {135, 180, 155, 164, 180, 170}; \
+      MANIPULATOR_CLASS_VARIABLE.setAllJointsPosesDeg(__null_pos_1);                        \
       delay(3000);                     \
-      FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 3);           \
-      static pos __null_pos_2[] = {135, 155, 132, 164, 180, 170}; \
-      MANIPULATOR_CLASS_VARIABLE.setAllJointsPositions(__null_pos_2);                        \
+      MANIPULATOR_CLASS_VARIABLE.setAllJointsSpeedsDPS(3);           \
+      static Joint::posDeg __null_pos_2[] = {135, 155, 132, 164, 180, 170}; \
+      MANIPULATOR_CLASS_VARIABLE.setAllJointsPosesDeg(__null_pos_2);                        \
       delay(500);                      \
-      FOR_JOINTS_ID(i)                 \
-        MANIPULATOR_CLASS_VARIABLE.setJointSpeedDPS(i, 1); \
+      MANIPULATOR_CLASS_VARIABLE.setAllJointsSpeedsDPS(1); \
       delay(2500);    \
-      MANIPULATOR_CLASS_VARIABLE.disableAll();   \
+      MANIPULATOR_CLASS_VARIABLE.disableAllJoints();   \
       exit(0);        \
     }                 \
   }

@@ -1,4 +1,6 @@
 #include "DynamixelManipulator.h"
+SerialPort _serial_dynamixel_manipulator;
+#define Serial _serial_dynamixel_manipulator
 
 
 #define PRINT_LIST(list)   \
@@ -39,69 +41,6 @@
 
 // --- Constnants ---
 #define MIN_SPEED_RPM 1.0
-
-#ifdef CPP_COMPILE_MODE
-  // --- Dynamixel2Arduino
-  Dynamixel2Arduino::Dynamixel2Arduino(int serialPort, int dirPin) {;}
-  Dynamixel2Arduino::Dynamixel2Arduino() {;}
-
-  void Dynamixel2Arduino::begin(int baudrate) {
-    std::cout << "DXL INIT BAUDRATE:" << baudrate << std::endl;
-  }
-  void Dynamixel2Arduino::setPortProtocolVersion(float protocolVersion) {
-    std::cout << "DXL INIT PROTOCOL VERSION:" << protocolVersion << std::endl;
-  }
-  bool Dynamixel2Arduino::ping(unsigned jointId) {
-    return true;
-  }
-  unsigned Dynamixel2Arduino::getModelNumber(unsigned jointId) {
-    return 1234;
-  }
-  unsigned Dynamixel2Arduino::setOperatingMode(unsigned jointId, unsigned opMode) {
-    return 1234;
-  }
-
-  unsigned Dynamixel2Arduino::getPresentCurrent(unsigned jointId, unsigned unit) {return 0;}
-  unsigned Dynamixel2Arduino::getPresentVelocity(unsigned jointId, unsigned unit) {return 0;}
-  unsigned Dynamixel2Arduino::getPresentPosition(unsigned jointId, unsigned unit) {return 0;}
-
-  bool Dynamixel2Arduino::setGoalCurrent(unsigned jointId, unsigned val, unsigned unit) {return true;}
-  bool Dynamixel2Arduino::setGoalVelocity(unsigned jointId, unsigned val, unsigned unit) {return true;}
-  bool Dynamixel2Arduino::setGoalPosition(unsigned jointId, unsigned val, unsigned unit) {return true;}
-
-  bool Dynamixel2Arduino::torqueOn(unsigned jointId) {return true;}
-  bool Dynamixel2Arduino::torqueOff(unsigned jointId) {return true;}
-
-  // --- SerialPort
-  void SerialPort::begin(int baudrate) {
-    std::cout << "SERIAL INIT BAUDRATE:" << baudrate << std::endl;
-  }
-  template <typename T>
-  void SerialPort::print(T value) {
-    std::cout << value;
-  }
-  void SerialPort::print(float value) {
-    std::cout << value;
-  }
-  void SerialPort::print() {
-  }
-  template <typename T>
-  void SerialPort::println(T value) {
-    std::cout << value << std::endl;
-  }
-  void SerialPort::println(float value) {
-    std::cout << value << std::endl;
-  }
-  void SerialPort::println() {
-    std::cout << std::endl;
-  }
-  bool SerialPort::operator ! () {
-    return false;
-  }
-  SerialPort _dynamixel_manipulator_serial;
-
-  void delay(int ms) {}
-#endif
 
 DynamixelManipulator::DynamixelManipulator(
   size_t jointsCount,
@@ -173,7 +112,7 @@ DynamixelManipulator::DynamixelManipulator(
     float speed = MAX_JOINT_SPEED_PERCENT;
     if (jointId == 1)
       speed *= 2;
-    result = dxl.setGoalVelocity(jointId, speed, ControlTableItem::UNIT_PERCENT);
+    result = this->dxl.setGoalVelocity(jointId, speed, ControlTableItem::UNIT_PERCENT);
     if (result == false) {
       PRINT_SETUP("Failed to set max Speed of joint ID: ");
       PRINT_SETUPln(jointId);

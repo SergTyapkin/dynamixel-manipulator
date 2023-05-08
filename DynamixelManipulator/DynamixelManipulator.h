@@ -2,74 +2,17 @@
 #define INCLUDE_DYNAMIXEL_MANIPULATOR_
 
 
-#define CPP_COMPILE_MODE
-
-
-#ifndef CPP_COMPILE_MODE
+#define _CPP_COMPILE_MODE
+#ifndef _CPP_COMPILE_MODE
   #include <Dynamixel2Arduino.h>
 #endif
 #include "../Kinematics/Kinematics.h"
 #include <math.h>
 #include <stdlib.h>
+#include "../DynamixelManipulatorUtils/CppCompileUtils.h"
 
 
-#ifndef CPP_COMPILE_MODE
-  #define DXL_SERIAL Serial3
-#else
-  #include <iostream>
-  #define DXL_SERIAL -1
-  #define USBSerial int
-  class Dynamixel2Arduino {
-  public:
-    Dynamixel2Arduino(int serialPort, int dirPin);
-    Dynamixel2Arduino();
-
-    void begin(int baudrate);
-    void setPortProtocolVersion(float protocolVersion);
-    bool ping(unsigned jointId);
-    unsigned getModelNumber(unsigned jointId);
-    unsigned setOperatingMode(unsigned jointId, unsigned opMode);
-
-    unsigned getPresentCurrent(unsigned jointId, unsigned unit);
-    unsigned getPresentVelocity(unsigned jointId, unsigned unit);
-    unsigned getPresentPosition(unsigned jointId, unsigned unit);
-
-    bool setGoalCurrent(unsigned jointId, unsigned val, unsigned unit);
-    bool setGoalVelocity(unsigned jointId, unsigned val, unsigned unit);
-    bool setGoalPosition(unsigned jointId, unsigned val, unsigned unit);
-
-    bool torqueOn(unsigned jointId);
-    bool torqueOff(unsigned jointId);
-  };
-
-  namespace ControlTableItem {
-    typedef int ParamUnit;
-    const unsigned OP_POSITION = 1;
-    const unsigned UNIT_PERCENT = 2;
-    const unsigned UNIT_RAW = 3;
-    const unsigned UNIT_DEGREE = 4;
-    const unsigned UNIT_RPM = 5;
-    const unsigned UNIT_MA = 6;
-  }
-
-  class SerialPort {
-  public:
-    void begin(int baudrate);
-    template <typename T>
-    void print(T value);
-    void print(float value);
-    void print();
-    template <typename T>
-    void println(T value);
-    void println(float value);
-    void println();
-
-    bool operator ! ();
-  };
-  #define Serial _dynamixel_manipulator_serial
-
-  void delay(int ms);
-#endif
+#define DXL_SERIAL Serial3
 #define DXL_DIR_PIN 22
 #define BAUDRATE  1000000
 #define DXL_PROTOCOL_VERSION 1.0
