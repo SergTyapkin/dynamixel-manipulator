@@ -2,10 +2,11 @@
 // Created by Сергей Тяпкин1 on 04.05.2023.
 //
 
+#define _CPP_COMPILE_UNIQUE_NAME _serial_cpp_compile_utils
 #include "CppCompileUtils.h"
 
-#define _CPP_COMPILE_MODE
-#ifdef _CPP_COMPILE_MODE
+
+#ifdef _CPP_COMPILE
 
 unsigned DEFAULT_JOINTS_POS[] = {135, 180, 155, 164, 180, 170}; // TODO
 

@@ -1,6 +1,7 @@
-#include "./DynamixelManipulatorUtils/CppCompileUtils.h"
-SerialPort _serial_test_cpp_compile;
-#define Serial _serial_test_cpp_compile
+#define _CPP_COMPILE_UNIQUE_NAME _serial_test_cpp_compile
+#include "./CppCompileUtils/CppCompileUtils.h"
+CPP_COMPILE_CPP_HEADER
+
 
 void setup() {
   bool a = Serial.available();

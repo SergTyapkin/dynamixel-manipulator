@@ -1,11 +1,13 @@
-#define _CPP_COMPILE_MODE
+#define _CPP_COMPILE_UNIQUE_NAME _serial_move_by_serial_port_positions
+#include "./CppCompileUtils/CppCompileUtils.h"
+CPP_COMPILE_CPP_HEADER
+
 #include "./DynamixelManipulator/DynamixelManipulator.h"
 #include "./DynamixelManipulatorMoves/DynamixelManipulatorMoves.h"
 #define MANIPULATOR_CLASS_VARIABLE DM
 #include "./DynamixelManipulatorUtils/DynamixelManipulatorUtils.h"
-#include "./DynamixelManipulatorUtils/CppCompileUtils.h"
-SerialPort _serial_move_by_serial_port_positions;
-#define Serial _serial_move_by_serial_port_positions
+#include "./Kinematics/Kinematics.h"
+
 
 #define END_INPUT_KEY 'E'
 
@@ -32,17 +34,18 @@ const unsigned jointsIds[] = {1, 2, 3, 4, 5, 6};
 #define JOINTS_COUNT 6
 
 
+CPP_COMPILE_BEFORE_SETUP
+
+DynamixelManipulatorMoves DM(JOINTS_COUNT, minPoses, maxPoses);
+
+static bool isInputInProgress = true;
+static Joint::posDeg curNumber = 0;
+static int curNumberLen = 0;
+static Joint::posDeg curPos[JOINTS_COUNT];
+static int curPosSize = 0;
+static char lastSymbol = ' ';
+
 void setup() {
-  DynamixelManipulatorMoves DM(JOINTS_COUNT, minPoses, maxPoses);
-
-  static bool isInputInProgress = true;
-  static Joint::posDeg curNumber = 0;
-  static int curNumberLen = 0;
-  static Joint::posDeg curPos[JOINTS_COUNT];
-  static int curPosSize = 0;
-  static char lastSymbol = ' ';
-
-  CPP_COMPILE_END_SETUP
 }
 
 
@@ -78,6 +81,5 @@ void loop() {
     }
   }
   DM.DELAY();
-
-  CPP_COMPILE_END_LOOP
 }
+CPP_COMPILE_AFTER_LOOP

@@ -6,7 +6,7 @@
 
 #include "../DynamixelManipulator/DynamixelManipulator.h"
 #include "../Kinematics/Kinematics.h"
-#include "../DynamixelManipulatorUtils/CppCompileUtils.h"
+#include "../CppCompileUtils/CppCompileUtils.h"
 
 
 #define MIN_JOINT_SPEED_DPS 6
@@ -25,7 +25,7 @@ public:
     const Joint::posDeg* minJointsPoses,
     const Joint::posDeg* maxJointPoses,
     const Joint::id* jointsIds = NULL,
-    USBSerial serialPort = DXL_SERIAL,
+    UARTClass serialPort = DXL_SERIAL,
     unsigned baudrate = BAUDRATE,
     unsigned dirPin = DXL_DIR_PIN,
     float protocolVersion = DXL_PROTOCOL_VERSION

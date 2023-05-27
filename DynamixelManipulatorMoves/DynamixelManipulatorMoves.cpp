@@ -1,6 +1,6 @@
+#define _CPP_COMPILE_UNIQUE_NAME _serial_dynamixel_manipulator_moves
 #include "DynamixelManipulatorMoves.h"
-SerialPort _serial_dynamixel_manipulator_moves;
-#define Serial _serial_dynamixel_manipulator_moves
+CPP_COMPILE_CPP_HEADER
 
 
 
@@ -55,13 +55,13 @@ DynamixelManipulatorMoves::DynamixelManipulatorMoves(
     const Joint::posDeg* minJointsPoses,
     const Joint::posDeg* maxJointsPoses,
     const Joint::id* jointsIds,
-    USBSerial serialPort,
+    UARTClass serialPort,
     unsigned baudrate,
     unsigned dirPin,
     float protocolVersion
 ): DynamixelManipulator(jointsCount, minJointsPoses, maxJointsPoses, jointsIds, serialPort, baudrate, dirPin, protocolVersion) {
-  this->startPos = this->_newJointsArray<Joint::posDeg>();
-  this->targetPos = this->_newJointsArray<Joint::posDeg>();
+  this->startPos = this->_newJointsArray();
+  this->targetPos = this->_newJointsArray();
 
   DynamixelManipulator::LOOP_UPDATE(); // получаем текущую позицию
   FOR_JOINTS_IDX(i) {

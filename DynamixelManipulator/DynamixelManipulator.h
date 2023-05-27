@@ -2,14 +2,13 @@
 #define INCLUDE_DYNAMIXEL_MANIPULATOR_
 
 
-#define _CPP_COMPILE_MODE
-#ifndef _CPP_COMPILE_MODE
+#include "../CppCompileUtils/CppCompileUtils.h"
+#ifndef _CPP_COMPILE
   #include <Dynamixel2Arduino.h>
 #endif
 #include "../Kinematics/Kinematics.h"
 #include <math.h>
 #include <stdlib.h>
-#include "../DynamixelManipulatorUtils/CppCompileUtils.h"
 
 
 #define DXL_SERIAL Serial3
@@ -29,7 +28,7 @@
 
 // --- You can define MANIPULATOR_SERIAL_PORT_GRAPH_MODE in your script ---
 #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
-#define PRINT_SETUPS false
+  #define PRINT_SETUPS false
   #define PRINT_SETS   false
   #define PRINT_ERRS   false
 #else
@@ -71,7 +70,7 @@ public:
     const Joint::posDeg* minJointsPoses,
     const Joint::posDeg* maxJointPoses,
     const Joint::id* jointsIds = NULL,
-    USBSerial serialPort = DXL_SERIAL,
+    UARTClass serialPort = DXL_SERIAL,
     unsigned baudrate = BAUDRATE,
     unsigned dirPin = DXL_DIR_PIN,
     float protocolVersion = DXL_PROTOCOL_VERSION
@@ -143,17 +142,17 @@ protected:
   Joint::posDeg* prevPositions; // only for "print_if_changed"
 
   // -------- Set stats --------
-  void setJointPosAny(Joint::id id, float position, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsPosAny(float position, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsPosAny(const float* positions, const char* unitStr, ControlTableItem::ParamUnit unit);
+  void setJointPosAny(Joint::id id, float position, const char* unitStr, ParamUnit unit);
+  void setAllJointsPosAny(float position, const char* unitStr, ParamUnit unit);
+  void setAllJointsPosAny(const float* positions, const char* unitStr, ParamUnit unit);
 
-  void setJointSpeedAny(Joint::id id, float speed, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsSpeedsAny(float speed, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsSpeedsAny(const float* speeds, const char* unitStr, ControlTableItem::ParamUnit unit);
+  void setJointSpeedAny(Joint::id id, float speed, const char* unitStr, ParamUnit unit);
+  void setAllJointsSpeedsAny(float speed, const char* unitStr, ParamUnit unit);
+  void setAllJointsSpeedsAny(const float* speeds, const char* unitStr, ParamUnit unit);
 
-  void setJointCurrentAny(Joint::id id, float current, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsCurrentsAny(float current, const char* unitStr, ControlTableItem::ParamUnit unit);
-  void setAllJointsCurrentsAny(const float* currents, const char* unitStr, ControlTableItem::ParamUnit unit);
+  void setJointCurrentAny(Joint::id id, float current, const char* unitStr, ParamUnit unit);
+  void setAllJointsCurrentsAny(float current, const char* unitStr, ParamUnit unit);
+  void setAllJointsCurrentsAny(const float* currents, const char* unitStr, ParamUnit unit);
 
   // -------- Read stats --------
   void readAllJointsPositionsRaw(Joint::posRaw* targetList);
@@ -169,6 +168,7 @@ protected:
   // --- Utils ---
   template <typename T>
   T* _newJointsArray();
+  float* _newJointsArray();
 };
 
 
