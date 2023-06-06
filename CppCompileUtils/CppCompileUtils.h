@@ -2,7 +2,7 @@
 // Created by Сергей Тяпкин1 on 04.05.2023.
 //
 
-//#define _CPP_COMPILE
+#define _CPP_COMPILE
 
 /**
  (!!!) You must write after include this file in each .cpp endpoint file:
@@ -23,9 +23,8 @@
   #warning "!!! COMPILING IN CPP MODE !!!"
 
   #ifndef _CPP_COMPILE_UNIQUE_NAME
-  #error "_CPP_COMPILE_UNIQUE_NAME must be defined"
+    #error "_CPP_COMPILE_UNIQUE_NAME must be defined"
   #endif
-  #warning "!!! COMPILING IN CPP MODE !!!"
 
   #define CPP_COMPILE_CPP_HEADER SerialPort _CPP_COMPILE_UNIQUE_NAME;
   #define Serial _CPP_COMPILE_UNIQUE_NAME
@@ -43,6 +42,13 @@
   #include <iostream>
   #define USBSerial int
   #define UARTClass int
+
+  #define LOW 0
+  #define HIGH 255
+
+  #define LED_BUILTIN 1
+
+  #define F(str) str
 
   class Dynamixel2Arduino {
   public:
@@ -139,6 +145,7 @@
   //
 
   void delay(unsigned ms);
+  void digitalWrite(int to, int val);
 
 #else
   #define CPP_COMPILE_AFTER_LOOP ;

@@ -10,6 +10,11 @@
 #include <math.h>
 #include <stdlib.h>
 
+#define PRINT_LIST(list)   \
+  FOR_JOINTS_IDX(i) {      \
+    Serial.print(list[i]); \
+    Serial.print(" ");     \
+  }
 
 #define DXL_SERIAL Serial3
 #define DXL_DIR_PIN 22
@@ -69,18 +74,19 @@ public:
     size_t jointsCount,
     const Joint::posDeg* minJointsPoses,
     const Joint::posDeg* maxJointPoses,
+    const Dynamixel2Arduino dxl,
     const Joint::id* jointsIds = NULL,
-    UARTClass serialPort = DXL_SERIAL,
     unsigned baudrate = BAUDRATE,
-    unsigned dirPin = DXL_DIR_PIN,
     float protocolVersion = DXL_PROTOCOL_VERSION
   );
   ~DynamixelManipulator();
 
   // --- Basic
-  void LOOP_UPDATE();
-  void LOOP_PRINT();
+  void SETUP();
+  void LOOP(bool withPrint = false);
   void DELAY();
+
+  void updateRealValues();
 
   // --- Position
   void setJointPosRaw(Joint::id id, Joint::posRaw pos);
@@ -133,6 +139,11 @@ public:
   void printCurrents();
 
   void printPositionsIfChanged();
+
+  // ------ Getters --------
+  Joint::posDeg getPositionDeg(Joint::id jointId);
+  Joint::speedDPS getSpeedDPS(Joint::id jointId);
+  Joint::currentMA getCurrentMA(Joint::id jointId);
 protected:
   size_t jointsCount;
   Dynamixel2Arduino dxl;
@@ -140,6 +151,12 @@ protected:
   Joint::posDeg* maxJointsPoses;
   Joint::id* jointsIds;
   Joint::posDeg* prevPositions; // only for "print_if_changed"
+
+  const Joint::posDeg* tmpMinJointsPoses;
+  const Joint::posDeg* tmpMaxJointsPoses;
+  const Joint::id* tmpJointsIds;
+  unsigned baudrate;
+  float protocolVersion;
 
   // -------- Set stats --------
   void setJointPosAny(Joint::id id, float position, const char* unitStr, ParamUnit unit);

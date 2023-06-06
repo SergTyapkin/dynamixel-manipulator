@@ -3,13 +3,6 @@
 CPP_COMPILE_CPP_HEADER
 
 
-#define PRINT_LIST(list)   \
-  FOR_JOINTS_IDX(i) {      \
-    Serial.print(list[i]); \
-    Serial.print(" ");     \
-  }
-
-
 // --- Prints ---
 #define __PRINT_IFDEF(var, value) \
   if(var)                         \
@@ -26,17 +19,19 @@ CPP_COMPILE_CPP_HEADER
 
 
 // --- Errors ---
-#define ERR_INIT_DEVICE            -11
-#define ERR_INIT_JOINT             -12
-#define ERR_SET_JOINT_MODE         -13
-#define ERR_READ_JOINT_POSITION    -14
-#define ERR_READ_JOINT_SPEED       -15
-#define ERR_READ_JOINT_CURRENT     -16
-#define ERR_SET_JOINT_POSITION     -17
-#define ERR_SET_JOINT_SPEED        -18
-#define ERR_SET_JOINT_CURRENT      -19
-#define ERR_ENABLE_JOINT           -20
-#define ERR_DISABLE_JOINT          -21
+#define ERR_INIT_DEVICE            101
+#define ERR_INIT_JOINT             102
+#define ERR_SET_JOINT_MODE         103
+#define ERR_READ_JOINT_POSITION    104
+#define ERR_READ_JOINT_SPEED       105
+#define ERR_READ_JOINT_CURRENT     106
+#define ERR_SET_JOINT_POSITION     107
+#define ERR_SET_JOINT_SPEED        108
+#define ERR_SET_JOINT_CURRENT      109
+#define ERR_ENABLE_JOINT           110
+#define ERR_DISABLE_JOINT          111
+
+#define ERR_DELAY_NOT_USED         500
 
 
 // --- Constnants ---
@@ -46,16 +41,21 @@ DynamixelManipulator::DynamixelManipulator(
   size_t jointsCount,
   const Joint::posDeg* minJointsPoses,
   const Joint::posDeg* maxJointsPoses,
+  const Dynamixel2Arduino dxl,
   const Joint::id* jointsIds,
-  UARTClass serialPort,
   unsigned baudrate,
-  unsigned dirPin,
   float protocolVersion
 ) {
   this->jointsCount = jointsCount;
+  this->baudrate = baudrate;
+  this->protocolVersion = protocolVersion;
+  this->tmpJointsIds = jointsIds;
+  this->tmpMaxJointsPoses = maxJointsPoses;
+  this->tmpMinJointsPoses = minJointsPoses;
+  this->dxl = dxl;
+}
 
-  this->dxl = Dynamixel2Arduino(serialPort, dirPin);
-
+void DynamixelManipulator::SETUP() {
   this->realPositions = this->_newJointsArray<Joint::posDeg>();
   this->realSpeeds = this->_newJointsArray<Joint::speedDPS>();
   this->realCurrents = this->_newJointsArray<Joint::currentMA>();
@@ -66,26 +66,26 @@ DynamixelManipulator::DynamixelManipulator(
   this->prevPositions = this->_newJointsArray<Joint::posDeg>();
 
   FOR_JOINTS_IDX(i) {
-    this->minJointsPoses[i] = minJointsPoses[i];
-    this->maxJointsPoses[i] = maxJointsPoses[i];
+    this->minJointsPoses[i] = this->tmpMinJointsPoses[i];
+    this->maxJointsPoses[i] = this->tmpMaxJointsPoses[i];
   }
 
   // --- Init serial port to log data in computer console
-  Serial.begin(baudrate);
+  Serial.begin(57600);
   while (!Serial) {;} // --- Wait for opening serial port from computer
 
   // --- Init Dynamixel class
-  this->dxl.begin(baudrate);
-  this->dxl.setPortProtocolVersion(protocolVersion);
+  this->dxl.begin(this->baudrate);
+  this->dxl.setPortProtocolVersion(this->protocolVersion);
 
   // --- Init every joint
   bool result = false;
   FOR_JOINTS_IDX(idx) {
     const Joint::id jointId = idx + 1;
-    if (jointsIds == NULL) {
+    if (this->tmpJointsIds == NULL) {
       this->jointsIds[idx] = jointId;
     } else {
-      this->jointsIds[idx] = jointsIds[idx];
+      this->jointsIds[idx] = this->tmpJointsIds[idx];
     }
 
     result = this->dxl.ping(jointId);
@@ -122,22 +122,22 @@ DynamixelManipulator::DynamixelManipulator(
   PRINT_SETUPln();
 
   #ifdef GRAPH_MODE
-      FOR_JOINTS_ID(i) {
-        Serial.print("Pos[");
-        Serial.print(i);
-        Serial.print("] ");
-      }
-      FOR_JOINTS_ID(i) {
-        Serial.print("Spd[");
-        Serial.print(i);
-        Serial.print("] ");
-      }
-  //    FOR_JOINTS_ID(i) {
-  //      Serial.print("Cur[");
-  //      Serial.print(i);
-  //      Serial.print("] ");
-  //    }
-      Serial.println();
+    FOR_JOINTS_ID(i) {
+      Serial.print("Pos[");
+      Serial.print(i);
+      Serial.print("] ");
+    }
+    FOR_JOINTS_ID(i) {
+      Serial.print("Spd[");
+      Serial.print(i);
+      Serial.print("] ");
+    }
+//    FOR_JOINTS_ID(i) {
+//      Serial.print("Cur[");
+//      Serial.print(i);
+//      Serial.print("] ");
+//    }
+    Serial.println();
   #endif
 }
 
@@ -152,23 +152,37 @@ DynamixelManipulator::~DynamixelManipulator() {
 }
 
 // --- Basic
-void DynamixelManipulator::LOOP_UPDATE() {
+static bool __delayed = true;
+void DynamixelManipulator::LOOP(bool withPrint) {
+  this->updateRealValues();
+
+  if (withPrint) {
+    #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
+      PRINT_LIST(this->realPositions);
+      PRINT_LIST(this->realSpeeds);
+      // PRINT_LIST(this->realCurrents);
+      Serial.println();
+    #else
+      this->printPositionsIfChanged();
+    #endif
+  }
+
+  if (!__delayed) {
+    PRINT_ERRln("You must use LOOP() method in start on loop() function\n And DELAY() method in end of it.")
+    exit(ERR_DELAY_NOT_USED);
+  }
+  __delayed = false;
+}
+
+void DynamixelManipulator::DELAY() {
+  delay(UPDATE_DELAY * 1000);
+  __delayed = true;
+}
+
+void DynamixelManipulator::updateRealValues() {
   this->readAllJointsPositionsDeg(this->realPositions);
   this->readAllJointsSpeedsDPS(this->realSpeeds);
   this->readAllJointsCurrentsMA(this->realCurrents);
-}
-void DynamixelManipulator::LOOP_PRINT() {
-  #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
-    PRINT_LIST(this->realPositions);
-    PRINT_LIST(this->realSpeeds);
-    // PRINT_LIST(this->realCurrents);
-    Serial.println();
-  #else
-    this->printPositionsIfChanged();
-  #endif
-}
-void DynamixelManipulator::DELAY() {
-  delay(UPDATE_DELAY * 1000);
 }
 
 // --- Position
@@ -224,14 +238,14 @@ void DynamixelManipulator::setAllJointsSpeedsRPM(Joint::speedRPM* jointsSpeeds) 
 }
 
 void DynamixelManipulator::setJointSpeedDPS(Joint::id id, Joint::speedDPS speed) {
-  this->setJointSpeedAny(id, speed / 6.0, "DPS", UNIT_RPM);
+  this->setJointSpeedAny(id, speed / 6.0, "RPM", UNIT_RPM);
 }
 void DynamixelManipulator::setAllJointsSpeedsDPS(Joint::speedDPS jointsSpeed) {
-  this->setAllJointsSpeedsAny(jointsSpeed / 6.0, "DPS", UNIT_RPM);
+  this->setAllJointsSpeedsAny(jointsSpeed / 6.0, "RPM", UNIT_RPM);
 }
 void DynamixelManipulator::setAllJointsSpeedsDPS(Joint::speedDPS* jointsSpeeds) {
   FOR_JOINTS_ID(id) {
-    this->setJointSpeedAny(id, jointsSpeeds[__i] / 6.0, "DPS", UNIT_RPM);
+    this->setJointSpeedAny(id, jointsSpeeds[__i] / 6.0, "RPM", UNIT_RPM);
   }
   //this->setAllJointsSpeedsAny(jointsSpeeds / 6.0, "DPS", UNIT_RPM);
 }
@@ -327,7 +341,7 @@ void DynamixelManipulator::printPositionsIfChanged() {
   // check if some position changed
   bool isChanged = false;
   FOR_JOINTS_IDX(i) {
-    if (this->prevPositions[i] != this->realPositions[i]) {
+    if (int(this->prevPositions[i]) != int(this->realPositions[i])) {
       isChanged = true;
       break;
     }
@@ -396,14 +410,14 @@ void DynamixelManipulator::setJointSpeedAny(Joint::id id, float speed, const cha
   PRINT_SET(id);
   PRINT_SET("]: ");
   PRINT_SET(speed);
-  PRINT_SETln(unitStr);
+  PRINT_SET(unitStr);
   if (unit == UNIT_RPM && speed < MIN_SPEED_RPM) {
     speed = MIN_SPEED_RPM;
     PRINT_SET(" -> ");
     PRINT_SET(speed);
     PRINT_SET(" RPM");
-    PRINT_SETln();
   }
+  PRINT_SETln();
   bool result = this->dxl.setGoalVelocity(id, speed, unit);
   if (result == false) {
     PRINT_ERR("Failed to set speed ");
@@ -497,6 +511,17 @@ void DynamixelManipulator::readAllJointsCurrentsPercent(Joint::currentPercent* t
   FOR_JOINTS_ID(id) {
     targetList[__i] = this->dxl.getPresentCurrent(id, UNIT_PERCENT);
   }
+}
+
+// ------ Getters --------
+Joint::posDeg DynamixelManipulator::getPositionDeg(Joint::id jointId) {
+  return this->realPositions[jointId - 1];
+}
+Joint::speedDPS DynamixelManipulator::getSpeedDPS(Joint::id jointId) {
+  return this->realSpeeds[jointId - 1];
+}
+Joint::currentMA DynamixelManipulator::getCurrentMA(Joint::id jointId) {
+  return this->realCurrents[jointId - 1];
 }
 
 // -----

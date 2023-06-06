@@ -1,10 +1,12 @@
-#include <iostream>
-using namespace std;
+#define _CPP_COMPILE_UNIQUE_NAME _serial_move_by_serial_port_positions
+#include "./CppCompileUtils/CppCompileUtils.h"
+CPP_COMPILE_CPP_HEADER
 
-#include "./DynamixelManipulator/DynamixelManipulator.h"
 #define MANIPULATOR_CLASS_VARIABLE DM
-#include "./DynamixelManipulatorUtils/DynamixelManipulatorUtils.h"
+#include "./DynamixelManipulator/DynamixelManipulator.h"
 #include "./DynamixelManipulatorMoves/DynamixelManipulatorMoves.h"
+#include "./DynamixelManipulatorUtils/DynamixelManipulatorUtils.h"
+#include "./Kinematics/Kinematics.h"
 
 
 #define JOINT_POS_MIN_DEG 0.0
@@ -27,18 +29,27 @@ const float maxPoses[] = {
 };
 const unsigned jointsIds[] = {1, 2, 3, 4, 5, 6};
 
-int main() {
-  DynamixelManipulatorMoves DM(6, minPoses, maxPoses);
-
-  DM.addPoint(10, 10, 10);
-  DM.addPoint(20, 30, 40);
-  DM.addPoint(20, 50, 40);
-  DM._printMovingPath();
-  DM.removePoint(1);
-  DM._printMovingPath();
-  DM.addPoint(20, -20, 10);
+CPP_COMPILE_BEFORE_SETUP
+DynamixelManipulatorMoves DM(6, minPoses, maxPoses);
+void setup() {
+  DM.SETUP();
+  DM.addPoint(-20, -20, 30);
+  DM.addPoint(-20, 0, 10);
+  DM.addPoint(-20, 20, 30);
+  DM.addPoint(0, 20, 10);
+  DM.addPoint(20, 20, 30);
+  DM.addPoint(20, 0, 10);
+  DM.addPoint(20, -20, 30);
+  DM.addPoint(0, -20, 10);
+  DM.addPoint(-20, -20, 30);
   DM._printMovingPath();
   DM.go();
-
-  return 0;
 }
+
+void loop() {
+  KEYS_SECTION {
+
+  }
+  DM.DELAY();
+}
+CPP_COMPILE_AFTER_LOOP

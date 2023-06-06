@@ -122,5 +122,6 @@ void delay(unsigned ms) {
   #endif
 }
 
+void digitalWrite(int to, int val) {;}
 
 #endif
