@@ -2,7 +2,7 @@
 // Created by Сергей Тяпкин1 on 04.05.2023.
 //
 
-#define _CPP_COMPILE
+//#define _CPP_COMPILE
 
 /**
  (!!!) You must write after include this file in each .cpp endpoint file:

@@ -3,94 +3,96 @@
 CPP_COMPILE_CPP_HEADER
 
 
+#define PRINT_MOVES true
 
-void DynamixelManipulatorMoves::getTimedSmoothMovingSpeedDPS(const Joint::posDeg* start, const Joint::posDeg* end, float duration, const float currentTime, Joint::speedDPS* exportSpeedsDPS, Joint::posDeg* exportPosesDeg) {
-  FOR_JOINTS_IDX(i) {
-    const float L = end[i] - start[i]; // Total moving length
-    float T1 = duration / 2;
-    float acceleration = L / (T1 * T1);
-    // ^ speed
-    // | ---------------- max speed
-    // |
-    // |     _/T1\_
-    // |   _/      \_
-    // | _/          \_duration
-    // |_______________________________> time
-    Serial.print("1 T1: ");
-    Serial.println(T1);
-    Serial.print("1 Acc: ");
-    Serial.println(acceleration);
-    Serial.print("1 Dur: ");
-    Serial.println(duration);
-    if (acceleration > MAX_JOINT_ACCELERATION_DPS) {
-      acceleration = MAX_JOINT_ACCELERATION_DPS;
-      T1 = sqrt(L / acceleration);
-      duration = T1 * 2;
+#define PRINT_MOVE(value) __PRINT_IFDEF(PRINT_MOVES, value)
+#define PRINT_MOVEln(value) __PRINTln_IFDEF(PRINT_MOVES, value)
 
-      Serial.print("2 T1: ");
-      Serial.println(T1);
-      Serial.print("2 Acc: ");
-      Serial.println(acceleration);
-      Serial.print("2 Dur: ");
-      Serial.println(duration);
-      if (acceleration * T1 > MAX_JOINT_SPEED_DPS) {
-        // ^ speed
-        // |
-        // |
-        // |----T1---------T2---- max speed
-        // |   _/           \_
-        // | _/               \_duration
-        // |______________________________> time
-        acceleration = MAX_JOINT_ACCELERATION_DPS;
-        T1 = MAX_JOINT_SPEED_DPS / MAX_JOINT_ACCELERATION_DPS;
-        duration = L / MAX_JOINT_SPEED_DPS + T1;
-        Serial.print("3 T1: ");
-        Serial.println(T1);
-        Serial.print("3 Acc: ");
-        Serial.println(acceleration);
-        Serial.print("3 Dur: ");
-        Serial.println(duration);
-      }
+
+void get_T1_L_Acc_Dur(const Joint::posDeg startPos, const Joint::posDeg endPos, const float minDuration, float &T1, float &L, float &acceleration, float &duration) {
+  // 1 variant: Duration = const
+  duration = minDuration; // Total moving time
+  L = fabs(endPos - startPos); // Total moving length
+  T1 = duration / 2; // Time to stop acceleration
+  acceleration = L / (T1 * T1);
+  // ^ speed
+  // | ---------------- max speed
+  // |
+  // |     _/T1\_
+  // |   _/      \_
+  // | _/          \_duration
+  // |_______________________________> time
+  if (acceleration > MAX_JOINT_ACCELERATION_DPS) { // Acceleration so much
+    // 2 variant: Acceleration = const
+    acceleration = float(MAX_JOINT_ACCELERATION_DPS);
+    T1 = sqrt(L / acceleration);
+    duration = T1 * 2;
+
+    if (acceleration * T1 > MAX_JOINT_SPEED_DPS) { // MaxSpeed so much
+      // 3 variant: Acceleration = const; MaxSpeed = const
+      acceleration = float(MAX_JOINT_ACCELERATION_DPS);
+      T1 = float(MAX_JOINT_SPEED_DPS) / MAX_JOINT_ACCELERATION_DPS;
+      duration = L / float(MAX_JOINT_SPEED_DPS) + T1;
+      // ^ speed
+      // |
+      // |
+      // |----T1---------T2---- max speed
+      // |   _/           \_
+      // | _/               \_duration
+      // |______________________________> time
     }
+  }
+}
 
-    const float currentL = this->realPositions[i] - start[i];
+void DynamixelManipulatorMoves::getTimedSmoothMovingSpeedDPS(const Joint::posDeg* start, const Joint::posDeg* end, const float movingDuration, const float currentTime, Joint::speedDPS* exportSpeedsDPS, Joint::posDeg* exportPosesDeg) {
+  float T1, L, acceleration, duration;
+  float maxDuration = movingDuration;
+  FOR_JOINTS_IDX(i) {
+    get_T1_L_Acc_Dur(start[i], end[i], movingDuration, T1, L, acceleration, duration);
+    maxDuration = fmax(maxDuration, duration); // save max duration
+  }
+
+  FOR_JOINTS_IDX(i) {
+    get_T1_L_Acc_Dur(start[i], end[i], maxDuration, T1, L, acceleration, duration);
+    const float currentL = fabs(this->realPositions[i] - start[i]);
     const float speedAfterT1 = T1 * acceleration;
     const float L1 = acceleration * (T1 * T1) / 2;
-    const float L2 = L - L1;
     const float T2 = duration - T1;
+    const float L2 = L1 + (T2 - T1) * speedAfterT1;
 
 
-    float targetL;
-    Serial.print("СurtentTime: ");
-    Serial.println(currentTime);
-    Serial.print("T1: ");
-    Serial.println(T1);
-    Serial.print("T2: ");
-    Serial.println(T2);
-    Serial.print("Duration: ");
-    Serial.println(duration);
-    Serial.print("L1: ");
-    Serial.println(L1);
-    Serial.print("L2: ");
-    Serial.println(L2);
-    Serial.print("L cur: ");
-    Serial.println(currentL);
-    Serial.print("L: ");
-    Serial.println(L);
-    Serial.print("L target: ");
-    Serial.println(targetL);
-    Serial.println("-------------");
+    float targetL = -1;
+//    Serial.print("СurtentTime: ");
+//    Serial.println(currentTime);
+//    Serial.print("T1: ");
+//    Serial.println(T1);
+//    Serial.print("T2: ");
+//    Serial.println(T2);
+//    Serial.print("Duration: ");
+//    Serial.println(duration);
+//    Serial.print("L1: ");
+//    Serial.println(L1);
+//    Serial.print("L2: ");
+//    Serial.println(L2);
+//    Serial.print("L cur: ");
+//    Serial.println(currentL);
+//    Serial.print("L: ");
+//    Serial.println(L);
+    exportSpeedsDPS[i] = 0;
     if (currentTime <= T1) {
+//    if (currentL <= L1) {
       // Starting
       float time = currentTime;
       exportSpeedsDPS[i] = acceleration * time;
       targetL = acceleration * (currentTime * time) / 2;
     } else if (currentTime <= T2) {
+//    } else if (currentL <= L2) {
       // Center on max speed
       float time = currentTime - T1;
       exportSpeedsDPS[i] = speedAfterT1;
-      targetL = L1 + time * MAX_JOINT_SPEED_DPS;
+      targetL = L1 + time * speedAfterT1;
     } else if (currentTime <= duration) {
+//    } else if (currentL <= L) {
       // Stopping
       float time = currentTime - T2;
       exportSpeedsDPS[i] = speedAfterT1 - (acceleration * time);
@@ -100,10 +102,13 @@ void DynamixelManipulatorMoves::getTimedSmoothMovingSpeedDPS(const Joint::posDeg
       exportSpeedsDPS[i] = MIN_JOINT_SPEED_DPS;
       targetL = L;
     }
-    exportPosesDeg[i] = start[i] + targetL;
-    exportSpeedsDPS[i] += (targetL - currentL) * 2;
-    if (targetL < 0) {
-      exportSpeedsDPS[i] *= -1;
+    Serial.print("L target: ");
+    Serial.println(targetL);
+    Serial.println("-------------");
+    exportPosesDeg[i] = start[i] + (end[i] - start[i]) * (targetL / L);
+    if (currentTime <= duration) {
+//    if (currentL <= L) {
+      exportSpeedsDPS[i] += (targetL - currentL) * 2;
     }
   }
 }
@@ -112,21 +117,29 @@ DynamixelManipulatorMoves::DynamixelManipulatorMoves(
     size_t jointsCount,
     const Joint::posDeg* minJointsPoses,
     const Joint::posDeg* maxJointsPoses,
+    const Joint::posDeg* jointsMoveAccuracies,
     const Dynamixel2Arduino dxl,
     const Joint::id* jointsIds,
     unsigned baudrate,
     float protocolVersion
-): DynamixelManipulator(jointsCount, minJointsPoses, maxJointsPoses, dxl, jointsIds, baudrate, protocolVersion) {;}
+): DynamixelManipulator(jointsCount, minJointsPoses, maxJointsPoses, dxl, jointsIds, baudrate, protocolVersion) {
+  this->tmpJointsMoveAccuracies = jointsMoveAccuracies;
+}
 
 void DynamixelManipulatorMoves::SETUP() {
   DynamixelManipulator::SETUP();
 
+  this->jointsMoveAccuracies = this->_newJointsArray();
   this->startPos = this->_newJointsArray();
   this->targetPos = this->_newJointsArray();
 
   this->updateRealValues(); // получаем текущую позицию
   FOR_JOINTS_IDX(i) {
     this->startPos[i] = this->realPositions[i]; // копируем в стартовую
+  }
+
+  FOR_JOINTS_IDX(i) {
+    this->jointsMoveAccuracies[i] = this->tmpJointsMoveAccuracies[i];
   }
 }
 
@@ -177,6 +190,22 @@ size_t DynamixelManipulatorMoves::addPosition(const Joint::posDeg* positions) {
   if (this->isRunning && this->movingPathLen == 1) {
     this->_setTarget(positionsCopy);
   }
+
+//  Serial.println("------- ADD POS -------");
+//  Serial.print("Is running: ");
+//  Serial.println(this->isRunning);
+//  Serial.print("Path len: ");
+//  Serial.println(this->movingPathLen);
+//  Serial.print("Path: ");
+//  this->_printMovingPath();
+//  Serial.print("Cur time: ");
+//  Serial.println(this->_currentMovingTime);
+//  Serial.print("Start point: ");
+//  PRINT_LIST(this->startPos);
+//  Serial.println();
+//  Serial.print("Target point: ");
+//  PRINT_LIST(this->targetPos);
+//  Serial.println();
 
   return this->movingPathLen - 1;
 }
@@ -237,62 +266,75 @@ void DynamixelManipulatorMoves::_printMovingPath() {
 void DynamixelManipulatorMoves::LOOP(bool withPrint) {
   DynamixelManipulator::LOOP(withPrint);
 
+  if (this->movingPathLen <= 0 || !this->isRunning)
+    return;
+
   Joint::speedDPS currentSpeeds[this->jointsCount];
   Joint::speedDPS currentPoses[this->jointsCount];
 
-  if (this->movingPathLen > 0 && this->isRunning) {
-    // Получаем скорости, которые надо выдать в текущий момент
-    getTimedSmoothMovingSpeedDPS(this->startPos, this->targetPos, this->_currentMovingDuration, this->_currentMovingTime, currentSpeeds, currentPoses);
-    float x, y, z;
-    getPointByAngles(this->realPositions, x, y, z);
-    Serial.print("Real point: ");
-    Serial.print(x);
-    Serial.print(", ");
-    Serial.print(y);
-    Serial.print(", ");
-    Serial.println(z);
-    Serial.print("Real poses: ");
-    PRINT_LIST(this->realPositions);
-    Serial.println();
-    getPointByAngles(currentPoses, x, y, z);
-    Serial.print("Trgt point: ");
-    Serial.print(x);
-    Serial.print(", ");
-    Serial.print(y);
-    Serial.print(", ");
-    Serial.println(z);
-    Serial.print("Trgt poses: ");
-    PRINT_LIST(currentPoses);
-    Serial.println();
-    Serial.print("Set speeds: ");
-    PRINT_LIST(currentSpeeds);
-    Serial.println();
+  // Получаем скорости, которые надо выдать в текущий момент
+  getTimedSmoothMovingSpeedDPS(this->startPos, this->targetPos, this->_currentMovingDuration, this->_currentMovingTime, currentSpeeds, currentPoses);
+  float x, y, z;
+  getPointByAngles(this->realPositions, x, y, z);
+  Serial.print("Real point: ");
+  Serial.print(x);
+  Serial.print(", ");
+  Serial.print(y);
+  Serial.print(", ");
+  Serial.println(z);
+  Serial.print("Real poses: ");
+  PRINT_LIST(this->realPositions);
+  Serial.println();
+  getPointByAngles(currentPoses, x, y, z);
+  Serial.print("Trgt point: ");
+  Serial.print(x);
+  Serial.print(", ");
+  Serial.print(y);
+  Serial.print(", ");
+  Serial.println(z);
+  Serial.print("Trgt poses: ");
+  PRINT_LIST(currentPoses);
+  Serial.println();
+  Serial.print("Set speeds: ");
+  PRINT_LIST(currentSpeeds);
+  Serial.println();
 
-    this->setAllJointsSpeedsDPS(currentSpeeds);
+  this->setAllJointsSpeedsDPS(currentSpeeds);
 
-    this->_currentMovingTime += UPDATE_DELAY;
+  this->_currentMovingTime += UPDATE_DELAY;
 
-    // Проверяем, закончен ли текущий отрезок
-    bool targetReached = true;
+  // Проверяем, закончен ли текущий отрезок
+  bool targetReached = true;
 //    FOR_JOINTS_IDX(i) { // Проверка, что мы вернулись к минимальной скорости
 //      if (currentSpeeds[i] > MIN_JOINT_SPEED_DPS) {
 //        targetReached = false;
 //        break;
 //      }
 //    }
-    FOR_JOINTS_IDX(i) {
-//      Serial.println(abs(this->realPositions[i] - this->targetPos[i]));
-      if (abs(this->realPositions[i] - this->targetPos[i]) > ACCURACY_TARGET_DIST) {  // Проверка по евклидовому расстоянию до точки
-        targetReached = false;
-      }
+  FOR_JOINTS_IDX(i) {
+//    Serial.print(fabs(this->realPositions[i] - this->targetPos[i]));
+//    Serial.print("/");
+//    Serial.print(this->jointsMoveAccuracies[i]);
+//    Serial.print(" ");
+    if (fabs(this->realPositions[i] - this->targetPos[i]) > this->jointsMoveAccuracies[i]) {  // Проверка по евклидовому расстоянию до точки
+      targetReached = false;
     }
+  }
+//  Serial.println();
 
-    if (targetReached) { // Достигли прошлую цель
-      Serial.println("POINT REACHED");
-      this->removePoint(0);
-      if (this->movingPathLen > 0) { // Если есть новая цель
-        this->_setTarget(this->movingPath[0]);
-      }
+  if (targetReached) { // Достигли прошлую цель
+    PRINT_MOVEln("POINT REACHED");
+//    Serial.print("Reached point: ");
+//    PRINT_LIST(this->movingPath[0]);
+//    Serial.println();
+    this->removePoint(0);
+    if (this->movingPathLen > 0) { // Если есть новая цель
+//      Serial.println("Path left. Get new target point [0]: ");
+//      this->_printMovingPath();
+//      PRINT_LIST(this->movingPath[0]);
+//      Serial.println();
+      this->_setTarget(this->movingPath[0]);
     }
+//    Serial.println("0 points remained. Path done.");
   }
 }

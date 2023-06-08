@@ -4,12 +4,6 @@ CPP_COMPILE_CPP_HEADER
 
 
 // --- Prints ---
-#define __PRINT_IFDEF(var, value) \
-  if(var)                         \
-    Serial.print(value);
-#define __PRINTln_IFDEF(var, value) \
-  if(var)                           \
-    Serial.println(value);
 #define PRINT_SET(value) __PRINT_IFDEF(PRINT_SETS, value)
 #define PRINT_ERR(value) __PRINT_IFDEF(PRINT_ERRS, value)
 #define PRINT_SETUP(value) __PRINT_IFDEF(PRINT_SETUPS, value)
@@ -112,6 +106,8 @@ void DynamixelManipulator::SETUP() {
     float speed = MAX_JOINT_SPEED_PERCENT;
     if (jointId == 1)
       speed *= 2;
+    if (jointId == 4)
+      speed *= 4;
     result = this->dxl.setGoalVelocity(jointId, speed, UNIT_PERCENT);
     if (result == false) {
       PRINT_SETUP("Failed to set max Speed of joint ID: ");

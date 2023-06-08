@@ -10,11 +10,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#define PRINT_LIST(list)   \
-  FOR_JOINTS_IDX(i) {      \
-    Serial.print(list[i]); \
-    Serial.print(" ");     \
-  }
 
 #define DXL_SERIAL Serial3
 #define DXL_DIR_PIN 22
@@ -29,7 +24,7 @@
 
 #define UPDATE_DELAY 0.050  // in seconds
 
-#define MAX_JOINT_SPEED_PERCENT 5 // On first joint will be SPEED x2
+#define MAX_JOINT_SPEED_PERCENT 2 // On first joint will be SPEED x2
 
 // --- You can define MANIPULATOR_SERIAL_PORT_GRAPH_MODE in your script ---
 #ifdef MANIPULATOR_SERIAL_PORT_GRAPH_MODE
@@ -45,6 +40,17 @@
 #define FOR_JOINTS_IDX(name_of_var) for (Joint::index name_of_var = 0; name_of_var < this->jointsCount; name_of_var++)
 #define FOR_JOINTS_ID(name_of_var) for (Joint::index __i = 0, name_of_var = this->jointsIds[__i]; __i < this->jointsCount; __i++, name_of_var = this->jointsIds[__i])
 
+#define PRINT_LIST(list)   \
+  FOR_JOINTS_IDX(i) {      \
+    Serial.print(list[i]); \
+    Serial.print(" ");     \
+  }
+#define __PRINT_IFDEF(var, value) \
+  if(var)                         \
+    Serial.print(value);
+#define __PRINTln_IFDEF(var, value) \
+  if(var)                           \
+    Serial.println(value);
 
 namespace Joint {
   typedef float posDeg;
